@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import pandas as pd
 
 import pytorch_lightning as pl
@@ -49,6 +50,9 @@ class LitPitchingPred(LightningModule):
         self.model = MyModel()
         self.criterion = nn.MSELoss()
 
+    def set_datamodule(self, dm):
+        self.datamodule = dm
+
     def training_step(self, batch, batch_idx):
         x, y = batch
         out = self.model(x)
@@ -58,41 +62,60 @@ class LitPitchingPred(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        # future = 1000
-        # pred = self.model(x, future=future)
         pred = self.model(x)
         loss = self.criterion(pred, y)
         self.log('val_loss', loss)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        # future = 1000
-        # pred = self.model(x, future=future)
         pred = self.model(x)
-        # loss = self.criterion(pred[:, :-future], y)
         loss = self.criterion(pred, y)
         self.log('test_loss', loss)
-        # y = pred.detach().numpy()
-        # # draw the result
-        # plt.figure(figsize=(30,10))
-        # plt.title('Predict future values for time MyModels\n(Dashlines are predicted values)', fontsize=30)
-        # plt.xlabel('x', fontsize=20)
-        # plt.ylabel('y', fontsize=20)
-        # plt.xticks(fontsize=20)
-        # plt.yticks(fontsize=20)
-        # def draw(yi, color):
-        #     plt.plot(np.arange(input.size(1)), yi[:input.size(1)], color, linewidth = 2.0)
-        #     plt.plot(np.arange(input.size(1), input.size(1) + future), yi[input.size(1):], color + ':', linewidth = 2.0)
-        # draw(y[0], 'r')
-        # draw(y[1], 'g')
-        # draw(y[2], 'b')
+
+    def training_epoch_end(self, training_step_outputs):
+
+        HZ = 16.66
+
+        test_dl = self.trainer.val_dataloaders[0]
+        for _,y in test_dl:
+            break
+        y = y[0] # first series in batch
+        # ds = test_dl.dataset
+        heat_s = 12 # heaing 6 sec
+        pred_s = 5
+
+        heat = y[:int(heat_s * HZ)]
+
+        pred = self.model(heat[None,...], future=len(y)-len(heat))
+        pred = pred[0].detach().numpy()
+
+        # draw few samples
+        fig = mpl.figure.Figure(figsize=(6, 4), dpi=100)
+        fig.tight_layout(pad=0)
+        canvas = FigureCanvas(fig)
+        ax = fig.gca()
+        ax.axvline(heat_s * HZ, color='b', ls='dashed')
+        ax.axvline((heat_s + pred_s) * HZ, color='b', ls='dashed')
+        ax.plot(pred, color='r')
+        ax.plot(y, color='g')
+
+        canvas.draw()
+        img = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+        width, height = fig.get_size_inches() * fig.get_dpi()
+        img = img.reshape(int(height), int(width), 3)
+        img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
+        # img = np.asarray(canvas.buffer_rgba())
+        # img = img.reshape(canvas.get_width_height()[::-1] + (3,))
+        self.logger.experiment.add_image('test_img', img)
+
         # plt.savefig('predict%d.pdf'%i)
         # plt.close()
-
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
+
+
 
 class MyDataset(Dataset):
     def __init__(self, data):
@@ -105,18 +128,18 @@ class MyDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx], self.data_shifted[idx]
 
+
+
 class MyDataModule(LightningDataModule):
     def __init__(self, batch_size: int = 32):
         super().__init__()
-        L = 100
+        L = 1000
         data = pd.read_csv("NPN_1155_part2.dat", sep=" ")
-        data = data["KK"].values
+        data = data["KK"].values[::3] # 16,66 Hz
+        data = data[:(len(data)//L)*L]
         data = data.reshape(-1, L).astype('float32')
         dataset = MyDataset(data)
-        train_size = int(0.8 * len(dataset))
-        test_size = len(dataset) - train_size
-        test_size, val_size = test_size // 2, test_size // 2
-        self.mnist_train, self.mnist_test, self.mnist_val = random_split(dataset, [train_size, test_size, val_size])
+        self.mnist_train, self.mnist_test, self.mnist_val = random_split(dataset, [0.8, 0.1, 0.1])
         self.batch_size = batch_size
 
     def train_dataloader(self):
@@ -133,8 +156,9 @@ class MyDataModule(LightningDataModule):
 
 
 def cli_main():
-    cli = LightningCLI(LitPitchingPred, MyDataModule, seed_everything_default=1234, save_config_overwrite=True) #, run=False)
-    # cli.trainer.fit(cli.model, datamodule=cli.datamodule)
+    cli = LightningCLI(LitPitchingPred, MyDataModule, seed_everything_default=1234, save_config_overwrite=True, run=False)
+    cli.model.set_datamodule(cli.datamodule)
+    cli.trainer.fit(cli.model, datamodule=cli.datamodule)
     # cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
     # predictions = cli.trainer.predict(ckpt_path="best", datamodule=cli.datamodule)
     # print(predictions[0])
