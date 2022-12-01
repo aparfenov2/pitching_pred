@@ -146,17 +146,24 @@ class MyDataset(Dataset):
 
 HZ = 50/4
 
+
 class MyDataModule(LightningDataModule):
     def __init__(self, batch_size: int = 32):
         super().__init__()
         L = 1000
         data = pd.read_csv("NPN_1155_part2.dat", sep=" ")
         data = data["KK"].values
-        gaps = [140580, 177660, 520700]
-        data = data[:gaps[0]-1]
-        data = data[::4] # HZ !
-        data = data[:(len(data)//L)*L]
-        data = data.reshape(-1, L).astype('float32')
+        gaps = [0, 140580, 177660, 520700, len(data)]
+        datas = []
+        for g0,g1 in zip(gaps,gaps[1:] ):
+            _data = data[g0: g1]
+            _data = _data[::4] # HZ !
+            _data = _data[:(len(_data)//L)*L]
+            _data = _data.reshape(-1, L).astype('float32')
+            datas += [_data]
+        data = np.concatenate(datas, axis=0)
+        # print(data.shape) # 198, 1000
+        # exit(0)
         dataset = MyDataset(data)
         self.mnist_train, self.mnist_test, self.mnist_val = random_split(dataset, [0.8, 0.1, 0.1])
         self.batch_size = batch_size
