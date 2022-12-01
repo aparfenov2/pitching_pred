@@ -1,7 +1,7 @@
 optimizer:
   class_path: torch.optim.Adam
   init_args:
-    lr: 0.1
+    lr: 0.01
 
 lr_scheduler:
   # class_path: torch.optim.lr_scheduler.ExponentialLR

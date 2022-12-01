@@ -153,16 +153,28 @@ class MyDataModule(LightningDataModule):
         L = 1000
         data = pd.read_csv("NPN_1155_part2.dat", sep=" ")
         data = data["KK"].values
+
         gaps = [0, 140580, 177660, 520700, len(data)]
-        datas = []
-        for g0,g1 in zip(gaps,gaps[1:] ):
-            _data = data[g0: g1]
-            _data = _data[::4] # HZ !
-            _data = _data[:(len(_data)//L)*L]
-            _data = _data.reshape(-1, L).astype('float32')
-            datas += [_data]
-        data = np.concatenate(datas, axis=0)
-        # print(data.shape) # 198, 1000
+        # gaps = [0, 140580, 177660]
+
+        def remove_gaps(data):
+            datas = []
+            for g0,g1 in zip(gaps, gaps[1:] ):
+                _data = data[g0+1: g1-1]
+                _data = _data[::4] # HZ !
+                _data = _data[:(len(_data)//L)*L]
+                _data = _data.reshape(-1, L).astype('float32')
+                datas += [_data]
+            return np.concatenate(datas, axis=0)
+
+        # _data = data
+        # _data = _data[::4] # HZ !
+        # _data = _data[:(len(_data)//L)*L]
+        # _data = _data.reshape(-1, L).astype('float32')
+        # data = _data
+        data = remove_gaps(data)
+        # print(np.any(np.isnan(data))) # 198, 1000,  200 without gaps
+        # print(np.min(data), np.max(data))
         # exit(0)
         dataset = MyDataset(data)
         self.mnist_train, self.mnist_test, self.mnist_val = random_split(dataset, [0.8, 0.1, 0.1])
