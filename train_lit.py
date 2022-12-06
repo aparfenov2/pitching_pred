@@ -19,7 +19,7 @@ class MyModel(nn.Module):
 
     def __init__(self):
         super(MyModel, self).__init__()
-        self.hidden_sz = 51
+        self.hidden_sz = 10
         self.lstm1 = nn.LSTMCell(1, self.hidden_sz)
         self.lstm2 = nn.LSTMCell(self.hidden_sz, self.hidden_sz)
         self.linear = nn.Linear(self.hidden_sz, 1)
