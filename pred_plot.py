@@ -2,20 +2,29 @@ import torch
 from torch.nn import functional as F
 import pandas as pd
 import numpy as np
+import argparse
 
 import matplotlib.pyplot as plt
 
 from train_lit import LitPitchingPred
+from model import MyModel, RNNState
+from metrics import get_mse, get_mae, make_preds_gen
 
 import matplotlib as mpl
 mpl.use('TkAgg')
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument('weights_path')
+parser.add_argument('data_path')
+args = parser.parse_args()
+
 # model = LitPitchingPred()
-model = LitPitchingPred.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=127-step=640.ckpt")
+model = LitPitchingPred.load_from_checkpoint(args.weights_path)
 model.eval()
 
 
-data = pd.read_csv("NPN_1155_part2.dat", sep=" ")
+data = pd.read_csv(args.data_path, sep=" ")
 data = data["KK"].values
 data = data[::4]
 HZ = 50/4
@@ -25,66 +34,39 @@ _input = torch.from_numpy(data).type(torch.float32)
 # print(_input.split(1, dim=0)[0].size())
 # exit(0)
 
-h_t = torch.zeros(self.hidden_sz, dtype=torch.float32)
-c_t = torch.zeros(self.hidden_sz, dtype=torch.float32)
-h_t2 = torch.zeros(self.hidden_sz, dtype=torch.float32)
-c_t2 = torch.zeros(self.hidden_sz, dtype=torch.float32)
-
 window_size = int(40 * HZ)
 future_len = int(5 * HZ)
-gts = [0]
-preds = [0]
+gts = []
+preds = []
 
 plt.ion()
 fig = plt.figure()
 ax = fig.add_subplot(111)
 
-# xgts = np.arange(0, len(gts))
-# xpreds = np.arange(0, len(preds))
-# lgts, = ax.plot(xgts, gts, 'b', label = 'x', linewidth = 3)
-# lpreds, = ax.plot(xpreds, preds, 'r', label = 'extrapolation')
-
-delay_line = []
 mse_max = 0
+mae_max = 0
 
-for step, _input_t in enumerate(_input.split(1, dim=0)):
+en = make_preds_gen(_input, self, future_len)
 
-    delay_line += [_input_t]
-    if len(delay_line) < future_len:
-        continue
-    input_delayed = delay_line.pop(0)
+for step, (gt, pred, preds_last, delay_line) in enumerate(en):
 
-    h_t, c_t = self.lstm1(input_delayed, (h_t, c_t))
-    h_t2, c_t2 = self.lstm2(h_t, (h_t2, c_t2))
-    pred = self.linear(h_t2)
-
-    gts += [input_delayed.item()]
+    gts += [gt]
     if len(gts) > window_size:
         gts.pop(0)
 
-    _h_t, _c_t = h_t, c_t
-    _h_t2, _c_t2 = h_t2, c_t2
-
-    preds_all = []
-    for i in range(future_len - 1):
-        _h_t, _c_t = self.lstm1(pred, (_h_t, _c_t))
-        _h_t2, _c_t2 = self.lstm2(_h_t, (_h_t2, _c_t2))
-        pred = self.linear(_h_t2)
-        preds_all += [pred.item()]
-
-    preds += [pred.item()]
+    preds += [pred]
     if len(preds) > window_size:
         preds.pop(0)
 
     if step % 10 == 0:
         xgts = np.arange(0, len(gts) + len(delay_line))
         xpreds = np.arange(0, len(preds)) + future_len
-        xpa = np.arange(0, len(preds_all)) + len(gts)
+        xpa = np.arange(0, len(preds_last)) + len(gts)
 
         ax.clear()
         ax.plot(xgts, gts + delay_line, 'b', label = 'x')
         ax.plot(xpreds, preds, 'r', label = 'pred')
-        ax.plot(xpa, preds_all, 'g', label = 'pred_tmp')
+        ax.plot(xpa, preds_last, 'g', label = 'pred_tmp')
         ax.axvline(len(gts), color='b', ls='dashed')
 
 
@@ -99,7 +81,9 @@ for step, _input_t in enumerate(_input.split(1, dim=0)):
         assert len(gts) == len(preds)
         _input = torch.tensor(gts)
         target = torch.tensor(preds)
-        mse = F.mse_loss(_input, target, reduction='mean')
-        if mse.item() > mse_max:
-            mse_max = mse.item()
-        print(f"step {step} time {step/HZ:4.4f} MSE: max {mse_max:4.4f} current {mse.item():4.4f}")
+        mse_mean, _mse_max = get_mse(_input, target)
+        mae_mean, _mae_max = get_mae(_input, target)
+        mse_max = max(mse_max, _mse_max)
+        mae_max = max(mae_max, _mae_max)
+
+        print(f"step {step} time {step/HZ:4.4f} mse_mean {mse_mean:4.4f} mse_max {mse_max:4.4f} mae_mean {mae_mean:4.4f} mae_max {mae_max:4.4f}")

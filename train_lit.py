@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.optim as optim
 import random
@@ -7,38 +6,9 @@ from pytorch_lightning.cli import LightningCLI
 from pytorch_lightning import cli_lightning_logo, LightningModule
 
 from dataset import MyDataModule
-from visualization import make_validation_plot
-
-class MyModel(nn.Module):
-
-    def __init__(self):
-        super(MyModel, self).__init__()
-        self.hidden_sz = 10
-        self.lstm1 = nn.LSTMCell(1, self.hidden_sz)
-        self.lstm2 = nn.LSTMCell(self.hidden_sz, self.hidden_sz)
-        self.linear = nn.Linear(self.hidden_sz, 1)
-
-    def forward(self, input, future = 0):
-        outputs = []
-        h_t = torch.zeros(input.size(0), self.hidden_sz, dtype=torch.float32)
-        c_t = torch.zeros(input.size(0), self.hidden_sz, dtype=torch.float32)
-        h_t2 = torch.zeros(input.size(0), self.hidden_sz, dtype=torch.float32)
-        c_t2 = torch.zeros(input.size(0), self.hidden_sz, dtype=torch.float32)
-
-        for input_t in input.split(1, dim=1):
-            h_t, c_t = self.lstm1(input_t, (h_t, c_t))
-            h_t2, c_t2 = self.lstm2(h_t, (h_t2, c_t2))
-            output = self.linear(h_t2)
-            outputs += [output]
-        for i in range(future):# if we should predict the future
-            h_t, c_t = self.lstm1(output, (h_t, c_t))
-            h_t2, c_t2 = self.lstm2(h_t, (h_t2, c_t2))
-            output = self.linear(h_t2)
-            outputs += [output]
-        outputs = torch.cat(outputs, dim=1)
-        return outputs
-
-
+from visualization import make_validation_plot, draw_to_image
+from model import MyModel
+from functools import partial
 
 class LitPitchingPred(LightningModule):
     def __init__(self):
@@ -57,17 +27,24 @@ class LitPitchingPred(LightningModule):
         self.log("train_loss", loss)
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def get_test_loss(self, batch, batch_idx):
         x, y = batch
-        pred = self.model(x)
-        loss = self.criterion(pred, y)
+        future_len = 150
+        # print(x.shape) [32,999]
+        pred = self.model(x[:,:-future_len], future=future_len)
+        loss = self.criterion(pred[:,:-future_len], y[:,:-future_len])
+        pred_loss = self.criterion(pred[:,-future_len:], y[:,-future_len:])
+        return loss, pred_loss
+
+    def validation_step(self, batch, batch_idx):
+        loss, pred_loss = self.get_test_loss(batch, batch_idx)
         self.log('val_loss', loss)
+        self.log('val_pred_loss', pred_loss)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        pred = self.model(x)
-        loss = self.criterion(pred, y)
+        loss, pred_loss = self.get_test_loss(batch, batch_idx)
         self.log('test_loss', loss)
+        self.log('test_pred_loss', pred_loss)
 
     def training_epoch_end(self, training_step_outputs):
 
@@ -79,7 +56,8 @@ class LitPitchingPred(LightningModule):
             if i >= random_batch:
                 break
         y = random.choice(y)
-        img = make_validation_plot(self.freq, self.model, y, self.current_epoch)
+        func = partial(make_validation_plot, model=self.model, y=y, freq=self.freq, current_epoch=self.current_epoch)
+        img = draw_to_image(func)
         img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
         self.logger.experiment.add_image('test_img', img)
 

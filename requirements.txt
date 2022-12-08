@@ -1,2 +1,8 @@
 torch
 matplotlib
+pytorch-lightning
+pandas
+scikit-learn
+scipy
+jsonargparse[signatures]
+tensorboard

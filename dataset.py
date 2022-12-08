@@ -21,28 +21,35 @@ class MyDataset(Dataset):
 class MyDataModule(LightningDataModule):
 
     def __init__(self,
-        fn = "NPN_1155_part2.dat",
+        fn_train = "NPN_1155_part2.dat",
+        fn_test =  "NPN_1155_part1.dat",
         cols=['KK'],
         batch_size: int = 32,
         freq=50/4
     ):
-
         super().__init__()
+
         self.freq = freq
         self.base_freq = 50
+        self.batch_size = batch_size
         L = 1000
-        data = pd.read_csv(fn, sep=" ")
-        data = data[cols].values
+
+        data = pd.read_csv(fn_train, sep=" ")
         gaps = self._find_gaps(data)
         gaps = [0, *gaps, len(data)]
+        data = data[cols].values
+        data = self._make_sequences(data, gaps, L)
+        self.train_set = MyDataset(data)
 
-        data = self._remove_gaps(data, gaps, L)
-        # print(np.any(np.isnan(data))) # 198, 1000,  200 without gaps
-        # print(np.min(data), np.max(data))
-        # exit(0)
-        dataset = MyDataset(data)
-        self.mnist_train, self.mnist_test, self.mnist_val = random_split(dataset, [0.8, 0.1, 0.1])
-        self.batch_size = batch_size
+        data = pd.read_csv(fn_test, sep=" ")
+        gaps = self._find_gaps(data)
+        gaps = [0, *gaps, len(data)]
+        data = data[cols].values
+        data = self._make_sequences(data, gaps, L)
+        self.test_set = MyDataset(data)
+
+        # self.mnist_train, self.mnist_test, self.mnist_val = random_split(dataset, [0.8, 0.1, 0.1])
+        # self.train_set, self.test_set = self.train_val_dataset(dataset)
 
     def train_val_dataset(dataset, val_split=0.25):
         train_idx, val_idx = train_test_split(list(range(len(dataset))), test_size=val_split)
@@ -51,7 +58,7 @@ class MyDataModule(LightningDataModule):
         datasets['val'] = Subset(dataset, val_idx)
         return datasets
 
-    def _remove_gaps(self, data, gaps, L):
+    def _make_sequences(self, data, gaps, L):
         datas = []
         divider = int(self.base_freq / self.freq)
         for g0,g1 in zip(gaps, gaps[1:] ):
@@ -68,13 +75,13 @@ class MyDataModule(LightningDataModule):
         return np.where(abs(np.diff(a))>threshold)[0] + 1
 
     def train_dataloader(self):
-        return DataLoader(self.mnist_train, batch_size=self.batch_size)
+        return DataLoader(self.train_set, batch_size=self.batch_size, num_workers=1)
 
     def val_dataloader(self):
-        return DataLoader(self.mnist_val, batch_size=self.batch_size)
+        return DataLoader(self.test_set, batch_size=self.batch_size, num_workers=1)
 
     def test_dataloader(self):
-        return DataLoader(self.mnist_test, batch_size=self.batch_size)
+        return DataLoader(self.test_set, batch_size=self.batch_size, num_workers=1)
 
     def predict_dataloader(self):
-        return DataLoader(self.mnist_test, batch_size=self.batch_size)
+        return DataLoader(self.test_set, batch_size=self.batch_size, num_workers=1)

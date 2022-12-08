@@ -16,6 +16,7 @@ lr_scheduler:
     verbose: true
 
 trainer:
+  max_epochs: 100
   callbacks: []
 
     # - class_path: pytorch_lightning.callbacks.EarlyStopping
@@ -25,3 +26,10 @@ trainer:
     #     patience: 10
     #     verbose: false
     #     mode: min
+
+data:
+  batch_size: 32
+  freq: 12.5
+  cols: [KK]
+  fn_train: data/NPN_1155_part2.dat
+  fn_test:  data/NPN_1155_part1.dat
