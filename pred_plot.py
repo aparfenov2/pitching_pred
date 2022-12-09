@@ -60,6 +60,7 @@ ax = fig.add_subplot(111)
 
 mse_max = 0
 mae_max = 0
+heat_metrics = max(window_size, int(50 * HZ))
 
 en = make_preds_gen(_input, model.model, future_len)
 
@@ -93,8 +94,9 @@ for step, (gt, pred, preds_last, delay_line) in enumerate(en):
             target = torch.tensor(npreds)
             mse_mean, _mse_max = get_mse(_input, target)
             mae_mean, _mae_max = get_mae(_input, target)
-            mse_max = max(mse_max, _mse_max)
-            mae_max = max(mae_max, _mae_max)
+            if step > heat_metrics:
+                mse_max = max(mse_max, _mse_max)
+                mae_max = max(mae_max, _mae_max)
             mse_str = f" mse_mean {mse_mean:4.4f} mse_max {mse_max:4.4f} mae_mean {mae_mean:4.4f} mae_max {mae_max:4.4f}"
 
         print(f"step {step} time {step/HZ:4.4f}{mse_str}")
