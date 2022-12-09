@@ -17,6 +17,7 @@ DOCKER_TI="-i"
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --train) TRAIN=1;;
+        --config) CONFIG="$2"; shift ;;
         --eval) EVAL=1;;
         --daemon) DOCKER_TI="-d";;
         --docker) RUN_IN_DOCKER=1;;
@@ -87,7 +88,10 @@ echo WORKDIR=$WORKDIR
 } # [ -n "${TG}" ] && {
 
 [ -z "${IN_DOCKER}" ] && {
+    rm data || true
     ln -s ../data data || true
+    rm configs || true
+    ln -s ../configs configs || true
 }
 
 [ -n "${RUN_IN_DOCKER}" ] && [ -z "${IN_DOCKER}" ] && {
@@ -185,13 +189,15 @@ export PYTHONUNBUFFERED=1
 # nvidia-smi -l 120 --query-gpu=timestamp,memory.used --format=csv | tee gpu.log &
 
 [ -n "${TRAIN}" ] && {
-    rm -rf lightning_logs/* || true
+    # rm -rf lightning_logs/* || true
     [ -n "$TENSORBOARD" ] && {
         tensorboard --logdir=lightning_logs &
         tensorboard_pid=$!
     }
-    python train_lit.py -c config.yaml 2>&1 | tee train.log
-    kill ${tensorboard_pid}
+    python train_lit.py -c ${CONFIG} 2>&1 | tee train.log
+    [ -n "${tensorboard_pid}" ] && {
+        kill ${tensorboard_pid} || true
+    }
     exit 0
 }
 

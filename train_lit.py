@@ -6,19 +6,19 @@ from pytorch_lightning.cli import LightningCLI
 from pytorch_lightning import cli_lightning_logo, LightningModule
 
 from dataset import MyDataModule
-from visualization import make_validation_plot, draw_to_image
+from visualization import make_validation_plots, draw_to_image, make_figure, make_preds_plot
 from model import MyModel
-from functools import partial
+from metrics import get_all_metrics
 
 class LitPitchingPred(LightningModule):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(LitPitchingPred, self).__init__()
-        self.model = MyModel()
+        self.model = MyModel(**kwargs)
+        self.save_hyperparameters()
         self.criterion = nn.MSELoss()
 
-    def set_datamodule(self, dm):
+    def set_datamodule(self, dm: MyDataModule):
         self.datamodule = dm
-        self.freq = self.datamodule.freq
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -30,10 +30,10 @@ class LitPitchingPred(LightningModule):
     def get_test_loss(self, batch, batch_idx):
         x, y = batch
         future_len = 150
-        # print(x.shape) [32,999]
-        pred = self.model(x[:,:-future_len], future=future_len)
-        loss = self.criterion(pred[:,:-future_len], y[:,:-future_len])
-        pred_loss = self.criterion(pred[:,-future_len:], y[:,-future_len:])
+        # print(x.shape) # [32,999,1]
+        pred = self.model(x[:,:-future_len,:], future=future_len)
+        loss = self.criterion(pred[:,:-future_len,:], y[:,:-future_len,:])
+        pred_loss = self.criterion(pred[:,-future_len:,:], y[:,-future_len:,:])
         return loss, pred_loss
 
     def validation_step(self, batch, batch_idx):
@@ -49,17 +49,40 @@ class LitPitchingPred(LightningModule):
     def training_epoch_end(self, training_step_outputs):
 
         test_dl = self.trainer.val_dataloaders[0]
-        # test_dl = self.trainer.train_dataloader
 
         random_batch = random.randint(0, len(test_dl))
         for i,(_,y) in enumerate(test_dl):
             if i >= random_batch:
                 break
-        y = random.choice(y)
-        func = partial(make_validation_plot, model=self.model, y=y, freq=self.freq, current_epoch=self.current_epoch)
-        img = draw_to_image(func)
+        y = random.choice(y) # select random sequence from random batch
+        assert y.dim() == 2 # L,F
+
+        num_feats = y.size(1)
+        freq=self.datamodule.freq
+        col_names = self.datamodule.cols
+
+        figs = [make_figure() for i in range(num_feats)]
+        axes = [fig.gca() for fig in figs]
+
+        make_validation_plots(axes=axes, model=self.model, y=y, freq=freq)
+
+        for i,fig in enumerate(figs):
+            fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f} переменная {col_names[i]}")
+            img = draw_to_image(fig)
+            img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
+            self.logger.experiment.add_image(f"test_img_{col_names[i]}", img)
+
+        # preds plot
+        fig = make_figure()
+
+        make_preds_plot(fig, self.model, y, freq)
+
+        img = draw_to_image(fig)
         img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
-        self.logger.experiment.add_image('test_img', img)
+        self.logger.experiment.add_image(f"test_img_pred", img)
+
+        # calc metrics
+        mse_mean, mse_max, mae_mean, mae_max = get_all_metrics(test_dl)
 
         # plt.savefig('predict%d.pdf'%i)
         # plt.close()

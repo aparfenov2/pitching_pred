@@ -27,9 +27,14 @@ trainer:
     #     verbose: false
     #     mode: min
 
+model:
+  hidden_sz: 10
+  input_sz: 2
+
 data:
   batch_size: 32
+  base_freq: 50
   freq: 12.5
-  cols: [KK]
+  cols: [KK, KK_v]
   fn_train: data/NPN_1155_part2.dat
   fn_test:  data/NPN_1155_part1.dat
