@@ -73,13 +73,13 @@ class LitPitchingPred(LightningModule):
             self.logger.experiment.add_image(f"test_img_{col_names[i]}", img)
 
         # preds plot
-        fig = make_figure()
-
-        make_preds_plot(fig, self.model, y, freq)
-
-        img = draw_to_image(fig)
-        img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
-        self.logger.experiment.add_image(f"test_img_pred", img)
+        if self.current_epoch % 10 == 0:
+            fig = make_figure()
+            make_preds_plot(fig, self.model, y, freq)
+            fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f}")
+            img = draw_to_image(fig)
+            img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
+            self.logger.experiment.add_image(f"test_img_pred", img)
 
         # calc metrics
         mse_mean, mse_max, mae_mean, mae_max = get_all_metrics(test_dl)

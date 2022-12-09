@@ -33,10 +33,10 @@ def make_validation_plots(axes, model: MyModel, y, freq: float, current_epoch:in
         # ax = fig.add_subplot(1, num_features, i + 1)
         ax.axvline((heat_s - offset_s) * freq, color='b', ls='dashed')
         ax.axvline((heat_s + pred_s - offset_s) * freq, color='b', ls='dashed')
-        ax.plot(pred[:,i], color='r')
-        ax.plot(y[:,i], color='g')
-        if current_epoch is not None:
-            ax.set_title(f"Эпоха {current_epoch} частота {freq:3.2f} переменная {col_names[i] if col_names is not None else i}")
+        ax.plot(pred[:,i], color='g')
+        ax.plot(y[:,i], color='b')
+        if current_epoch is not None and col_names is not None:
+            ax.set_title(f"Эпоха {current_epoch} частота {freq:3.2f} переменная {col_names[i]}")
 
 def make_figure():
     fig = mpl.figure.Figure(figsize=(12, 5), dpi=100)
@@ -59,21 +59,24 @@ def draw_preds_plot(ax, gts, preds, preds_last, delay_line, future_len, feature_
     xpa = np.arange(0, len(preds_last)) + len(gts)
 
     ygts = np.concatenate(gts + delay_line, axis=0)
-    if feature_id is not None:
-        ygts = ygts[:, feature_id]
     ypreds = np.concatenate(preds, axis=0)
-    if feature_id is not None:
-        ypreds = ypreds[:, feature_id]
     preds_last = np.concatenate(preds_last, axis=0)
-    if feature_id is not None:
-        preds_last = preds_last[:, feature_id]
 
-    ax.plot(xgts, ygts, 'b', label = 'x')
-    ax.plot(xpreds, ypreds , 'r', label = 'pred')
-    ax.plot(xpa, preds_last, 'g', label = 'pred_tmp')
+    def make_label(l,i):
+        return f"{l}_{cols[i]}"
+
+    def make_color(ci, i):
+        palette = [('blue','red','green'), ('cyan', 'salmon', 'violet'), ('steelblue', 'chocolate', 'hotpink')]
+        return palette[i][ci]
+
+    for i in range(len(cols)) if feature_id is None else [feature_id]:
+        ax.plot(xgts, ygts[:,i], color=make_color(0,i), label = make_label('y',i))
+        ax.plot(xpreds, ypreds[:,i] , color=make_color(1,i), label = make_label('pred',i))
+        ax.plot(xpa, preds_last[:,i], color=make_color(2,i), label = make_label('pred_tmp',i))
     ax.axvline(len(gts), color='b', ls='dashed')
-    if cols is not None and feature_id is not None:
+    if feature_id is not None:
         ax.set_title(f"Переменная {cols[feature_id]}")
+    ax.legend(loc='upper right')
 
 def make_preds_plot(fig, model : MyModel, y, freq: float, feature_id: int=None, cols: typing.List[str]=None):
     # expected: tensors
