@@ -82,7 +82,9 @@ class LitPitchingPred(LightningModule):
             self.logger.experiment.add_image(f"test_img_pred", img)
 
         # calc metrics
-        mse_mean, mse_max, mae_mean, mae_max = get_all_metrics(test_dl)
+        mae_mean, mae_max = get_all_metrics(self.datamodule.test_dataloader(), model=self.model, future_len=3*freq)
+        self.log('mae_mean', mae_mean, on_step=False, on_epoch=True)
+        self.log('mae_max', mae_max, on_step=False, on_epoch=True)
 
         # plt.savefig('predict%d.pdf'%i)
         # plt.close()

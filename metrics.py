@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 from torch.nn import functional as F
 from model import MyModel, RNNState
 
@@ -34,18 +35,25 @@ def make_preds_gen(_input, model : MyModel, future_len, return_numpy=True):
             # returns [bs,1,feats] lists
             yield input_delayed, possibly_numpy(pred), preds, delay_line
 
-def make_preds(y, model : MyModel, future_len):
+def make_preds(y, model : MyModel, future_len, batch_n=None, batch_total=None):
     # expected: tensors
-    assert y.dim() == 2, str(y.dim())
 
     en = make_preds_gen(y, model, future_len, return_numpy=False)
+    batch_n_str = ""
+    if batch_n is not None:
+        if batch_total is None:
+            batch_n_str = " (batch " + str(batch_n) + ")"
+        else:
+            batch_n_str = " (batch " + str(batch_n) + " of " + str(batch_total) +")"
+
+    en = tqdm(en, total=y.shape[1], desc="calculate test metrics" + batch_n_str + " bsz " + str(y.shape[0]))
     gt_preds = list((gt, pred) for gt, pred, _,_ in en)
     gts = [gt for gt, pred in gt_preds]
     preds = [pred for gt, pred in gt_preds]
 
     assert len(gts) == len(preds)
-    _input = torch.tensor(gts)
-    target = torch.tensor(preds)
+    _input = torch.stack(gts, axis=1)
+    target = torch.stack(preds, axis=1)
     return _input, target
 
 def get_mse(_input, target):
@@ -54,11 +62,19 @@ def get_mse(_input, target):
 
 def get_mae(_input, target):
     mae = F.l1_loss(_input, target, reduction='none')
-    return mae.mean().item(), mae.max().item()
+    return mae.mean(axis=1), mae.max(axis=1).values
 
-def get_all_metrics(test_dl):
+def get_all_metrics(test_dl, model, future_len):
+    mae_means = []
+    mae_maxes = []
     for i,(_,y) in enumerate(test_dl):
-        pass
-
-    mse_mean, mse_max, mae_mean, mae_max = 0, 0, 0, 0
-    return mse_mean, mse_max, mae_mean, mae_max
+        gts, preds = make_preds(y, model, future_len, batch_n=i, batch_total=len(test_dl))
+        mae_mean, mae_max = get_mae(gts, preds) # 4, 2
+        mae_means += [mae_mean]
+        mae_maxes += [mae_max]
+    mae_means = torch.cat(mae_means)
+    mae_maxes = torch.cat(mae_maxes)
+    return (
+        torch.mean(mae_means, axis=0),
+        torch.max(mae_maxes, axis=0).values
+        )
