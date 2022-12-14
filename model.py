@@ -30,7 +30,8 @@ class MyModel(nn.Module):
 
     def __init__(self,
         hidden_sz = 10,
-        input_sz  = 1
+        input_sz  = 1,
+        output_sz = 1
         ):
         super(MyModel, self).__init__()
         self.hidden_sz = hidden_sz

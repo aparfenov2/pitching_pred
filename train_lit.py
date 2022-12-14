@@ -93,8 +93,8 @@ class LitPitchingPred(LightningModule):
                 future_len=int(self.datamodule.future_len_s * freq)
                 )
             for i, col in enumerate(col_names):
-                self.log('mae_mean_'+col, mae_mean[i].item(), on_step=False, on_epoch=True)
-                self.log('mae_max_'+col, mae_max[i].item(), on_step=False, on_epoch=True)
+                self.log('mae_mean_'+col, mae_mean[i].item(), on_step=False, on_epoch=True, logger=True)
+                self.log('mae_max_'+col, mae_max[i].item(), on_step=False, on_epoch=True, logger=True)
 
             # save preds to csv
             df = metrics_to_pandas(gts, preds, ts, col_names)
