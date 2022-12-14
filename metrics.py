@@ -57,7 +57,7 @@ def make_preds(y,t, model : MyModel, future_len, batch_n=None, batch_total=None)
 
 def get_mse(_input, target):
     mse = F.mse_loss(_input, target, reduction='none')
-    return mse.mean().item(), mse.max().item()
+    return mse.mean(axis=1), mse.max(axis=1).values
 
 def get_mae(_input, target):
     mae = F.l1_loss(_input, target, reduction='none')

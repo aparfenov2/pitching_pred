@@ -20,7 +20,7 @@ mpl.use('TkAgg')
 parser = argparse.ArgumentParser()
 parser.add_argument('config')
 parser.add_argument('weights_path')
-parser.add_argument('data_path')
+parser.add_argument('--data-path')
 parser.add_argument('--feature-id', type=int)
 
 args = parser.parse_args()
@@ -35,8 +35,10 @@ model = LitPitchingPred.load_from_checkpoint(
     )
 model.eval()
 
-
-data = pd.read_csv(args.data_path, sep=" ")
+data_path = cfg['data']['fn_test']
+if args.data_path is not None:
+    data_path = args.data_path
+data = pd.read_csv(data_path, sep=" ")
 MyDataModule.add_speed_to_data(data)
 
 cols = cfg['data']['cols']
@@ -84,19 +86,21 @@ for step, (gt, pred, preds_last) in enumerate(en):
         fig.canvas.flush_events()
 
         mse_str = ""
-        if args.feature_id is not None:
+        if args.feature_id is not None or len(cols) < 2:
+            if args.feature_id is None:
+                args.feature_id = 0
             assert len(gts) == len(preds)
             ngts = np.concatenate(gts, axis=0)
             ngts = ngts[:, args.feature_id]
             npreds = np.concatenate(preds, axis=0)
             npreds = npreds[:, args.feature_id]
-            _input = torch.tensor(ngts)
-            target = torch.tensor(npreds)
+            _input = torch.tensor(ngts)[None,...]
+            target = torch.tensor(npreds)[None,...]
             mse_mean, _mse_max = get_mse(_input, target)
             mae_mean, _mae_max = get_mae(_input, target)
             if step > heat_metrics:
                 mse_max = max(mse_max, _mse_max)
                 mae_max = max(mae_max, _mae_max)
-            mse_str = f" mse_mean {mse_mean:4.4f} mse_max {mse_max:4.4f} mae_mean {mae_mean:4.4f} mae_max {mae_max:4.4f}"
-
+            # mse_str = f" mse_mean {mse_mean:4.4f} mse_max {mse_max:4.4f} mae_mean {mae_mean:4.4f} mae_max {mae_max:4.4f}"
+            print("mse_mean", mse_mean, "mse_max", mse_max, "mae_mean", mae_mean, "mae_max", mae_max)
         print(f"step {step} time {step/HZ:4.4f}{mse_str}")
