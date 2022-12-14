@@ -29,11 +29,13 @@ class MyDataModule(LightningDataModule):
         test_L=30000,
         L=1000,
         freq=50/4,
-        base_freq=50
+        base_freq=50,
+        future_len_s=3
     ):
         super().__init__()
 
         self.freq = freq
+        self.future_len_s = future_len_s
         self.base_freq = base_freq
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
@@ -41,6 +43,7 @@ class MyDataModule(LightningDataModule):
         self.test_L = test_L
         self.L = L
         self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train")
+        self.val_set = self.read_data_and_make_dataset(fn_test, cols, L=L, set_name="val")
         self.test_set = self.read_data_and_make_dataset(fn_test, cols, L=test_L, set_name="test")
 
     @staticmethod
@@ -99,16 +102,16 @@ class MyDataModule(LightningDataModule):
         return np.where(abs(np.diff(a))>threshold)[0] + 1
 
     def train_dataloader(self):
-        return DataLoader(self.train_set, batch_size=self.batch_size, num_workers=1)
+        return DataLoader(self.train_set, batch_size=self.batch_size, num_workers=2)
 
     def val_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.batch_size, num_workers=1)
+        return DataLoader(self.val_set, batch_size=self.batch_size, num_workers=2)
 
     def test_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.test_batch_size, num_workers=1)
+        return DataLoader(self.test_set, batch_size=self.test_batch_size, num_workers=2)
 
     def predict_dataloader(self):
-        return DataLoader(self.test_set, batch_size=1, num_workers=1)
+        return DataLoader(self.test_set, batch_size=1, num_workers=2)
 
 
 class MyDataModuleUT(unittest.TestCase):

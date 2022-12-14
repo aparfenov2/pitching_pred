@@ -9,7 +9,7 @@ parser.add_argument('--to', type=int)
 parser.add_argument('--x-is-sec', action='store_true')
 args = parser.parse_args()
 
-df = pd.read_csv(args.csv)
+df = pd.read_csv(args.csv, sep=' ')
 df = df[args.skip:]
 if args.to is not None:
     df = df[:args.to]
