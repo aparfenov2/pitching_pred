@@ -66,7 +66,7 @@ en = make_preds_gen(_input, model.model, future_len)
 
 gts = []
 preds = []
-for step, (gt, pred, preds_last, delay_line) in enumerate(en):
+for step, (gt, pred, preds_last) in enumerate(en):
 
     gts += [gt]
     if len(gts) > window_size:
@@ -78,7 +78,7 @@ for step, (gt, pred, preds_last, delay_line) in enumerate(en):
 
     if step % 10 == 0:
         ax.clear()
-        draw_preds_plot(ax, gts, preds, preds_last, delay_line, future_len, args.feature_id, cols)
+        draw_preds_plot(ax, gts, preds, preds_last, future_len, args.feature_id, cols)
 
         fig.canvas.draw()
         fig.canvas.flush_events()

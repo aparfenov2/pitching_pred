@@ -8,7 +8,7 @@ from pytorch_lightning import cli_lightning_logo, LightningModule
 from dataset import MyDataModule
 from visualization import make_validation_plots, draw_to_image, make_figure, make_preds_plot
 from model import MyModel
-from metrics import get_all_metrics
+from metrics import get_all_metrics, metrics_to_pandas
 
 class LitPitchingPred(LightningModule):
     def __init__(self, **kwargs):
@@ -21,14 +21,18 @@ class LitPitchingPred(LightningModule):
         self.datamodule = dm
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        data, t = batch
+        x = data[:, :-1]
+        y = data[:, 1:]
         out = self.model(x)
         loss = self.criterion(out, y)
         self.log("train_loss", loss)
         return loss
 
     def get_test_loss(self, batch, batch_idx):
-        x, y = batch
+        data, t = batch
+        x = data[:, :-1]
+        y = data[:, 1:]
         future_len = 150
         # print(x.shape) # [32,999,1]
         pred = self.model(x[:,:-future_len,:], future=future_len)
@@ -51,7 +55,7 @@ class LitPitchingPred(LightningModule):
         test_dl = self.trainer.val_dataloaders[0]
 
         random_batch = random.randint(0, len(test_dl))
-        for i,(_,y) in enumerate(test_dl):
+        for i,(y,t) in enumerate(test_dl):
             if i >= random_batch:
                 break
         y = random.choice(y) # select random sequence from random batch
@@ -81,10 +85,16 @@ class LitPitchingPred(LightningModule):
             img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
             self.logger.experiment.add_image(f"test_img_pred", img)
 
-        # calc metrics
-        mae_mean, mae_max = get_all_metrics(self.datamodule.test_dataloader(), model=self.model, future_len=3*freq)
-        self.log('mae_mean', mae_mean, on_step=False, on_epoch=True)
-        self.log('mae_max', mae_max, on_step=False, on_epoch=True)
+            # calc metrics
+            mae_mean, mae_max, gts, preds, ts = get_all_metrics(self.datamodule.test_dataloader(), model=self.model, future_len=int(3 * freq))
+            self.log('mae_mean', mae_mean, on_step=False, on_epoch=True)
+            self.log('mae_max', mae_max, on_step=False, on_epoch=True)
+
+            # save preds to csv
+            df = metrics_to_pandas(gts, preds, ts, col_names)
+            fn = self.logger.log_dir + '/preds_' + str(self.current_epoch) + '.csv'
+            df.to_csv(fn, index=False)
+            print("metrics preds saved to " + fn)
 
         # plt.savefig('predict%d.pdf'%i)
         # plt.close()

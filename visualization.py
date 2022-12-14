@@ -51,14 +51,14 @@ def draw_to_image(fig):
     img = img.reshape(int(height), int(width), 3)
     return img
 
-def draw_preds_plot(ax, gts, preds, preds_last, delay_line, future_len, feature_id=None, cols=None):
+def draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id=None, cols=None):
     # expected: numpy arrays [[bs,1,feat] ...]
 
-    xgts = np.arange(0, len(gts) + len(delay_line))
-    xpreds = np.arange(0, len(preds)) + future_len
-    xpa = np.arange(0, len(preds_last)) + len(gts)
+    xgts = np.arange(0, len(gts))
+    xpreds = np.arange(0, len(preds))
+    xpa = np.arange(0, len(preds_last)) + len(gts) - future_len
 
-    ygts = np.concatenate(gts + delay_line, axis=0)
+    ygts = np.concatenate(gts, axis=0)
     ypreds = np.concatenate(preds, axis=0)
     preds_last = np.concatenate(preds_last, axis=0)
 
@@ -73,7 +73,7 @@ def draw_preds_plot(ax, gts, preds, preds_last, delay_line, future_len, feature_
         ax.plot(xgts, ygts[:,i], color=make_color(0,i), label = make_label('y',i))
         ax.plot(xpreds, ypreds[:,i] , color=make_color(1,i), label = make_label('pred',i))
         ax.plot(xpa, preds_last[:,i], color=make_color(2,i), label = make_label('pred_tmp',i))
-    ax.axvline(len(gts), color='b', ls='dashed')
+    ax.axvline(len(gts) - future_len, color='b', ls='dashed')
     if feature_id is not None:
         ax.set_title(f"Переменная {cols[feature_id]}")
     ax.legend(loc='upper right')
@@ -89,8 +89,8 @@ def make_preds_plot(fig, model : MyModel, y, freq: float, feature_id: int=None, 
     y = y[None, ...]
 
     en = make_preds_gen(y, model, future_len)
-    for gt, pred, preds_last, delay_line in tqdm(en, total=y.shape[1], desc="cummulative preds plot"):
+    for gt, pred, preds_last in tqdm(en, total=y.shape[1], desc="cummulative preds plot"):
         gts += [gt]
         preds += [pred]
 
-    draw_preds_plot(ax, gts, preds, preds_last, delay_line, future_len, feature_id, cols)
+    draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id, cols)
