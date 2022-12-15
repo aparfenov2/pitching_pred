@@ -4,36 +4,10 @@ from torch.nn import functional as F
 from model import MyModel, RNNState
 import pandas as pd
 
-def make_preds_gen(_input, model : MyModel, future_len):
-    assert _input.dim() == 3, str(_input.dim())
-    bs = _input.size(0)
-    state = RNNState(bs=bs, hidden_sz=model.hidden_sz)
-    delay_line = []
-
-    with torch.no_grad():
-        for _input_t in _input.split(1, dim=1):
-            _input_t = _input_t.squeeze(dim=1)
-            assert _input_t.dim() == 2, str(_input_t.dim())
-            assert _input_t.size(0) == _input.size(0) # 32, 2
-            delay_line += [_input_t]
-            if len(delay_line) < future_len:
-                continue
-            input_delayed = delay_line.pop(0)
-            pred = model.forward_one_step(input_delayed, state)
-
-            pred_state = state.clone().detach()
-            preds = [pred]
-            for i in range(future_len - 1):
-                pred = model.forward_one_step(pred, pred_state)
-                preds += [pred]
-
-            # returns [bs,1,feats] lists
-            yield _input_t, pred, preds
-
 def make_preds(y,t, model : MyModel, future_len, batch_n=None, batch_total=None):
     # expected: tensors
 
-    en = make_preds_gen(y, model, future_len, return_numpy=False)
+    en = model.make_preds_gen(y, future_len)
     batch_n_str = ""
     if batch_n is not None:
         if batch_total is None:

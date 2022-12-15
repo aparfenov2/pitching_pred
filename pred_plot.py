@@ -64,7 +64,7 @@ mse_max = 0
 mae_max = 0
 heat_metrics = max(window_size, int(50 * HZ))
 
-en = make_preds_gen(_input, model.model, future_len)
+en = model.model.make_preds_gen(_input, model.model, future_len)
 
 gts = []
 preds = []

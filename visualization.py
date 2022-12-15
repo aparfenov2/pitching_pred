@@ -7,7 +7,6 @@ mpl.use('Agg')
 import matplotlib.figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from model import MyModel
-from metrics import make_preds_gen
 
 def make_validation_plots(axes, model: MyModel, y, freq: float, current_epoch:int = None, col_names=None):
 
@@ -88,7 +87,7 @@ def make_preds_plot(fig, model : MyModel, y, freq: float, feature_id: int=None, 
     gts = []
     y = y[None, ...]
 
-    en = make_preds_gen(y, model, future_len)
+    en = model.make_preds_gen(y, future_len)
     for gt, pred, preds_last in tqdm(en, total=y.shape[1], desc="cummulative preds plot"):
         gts += [gt]
         preds += [pred]
