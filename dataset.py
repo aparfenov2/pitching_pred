@@ -65,7 +65,9 @@ class MyDataModule(LightningDataModule):
         for g0,g1 in zip(gaps, gaps[1:] ):
             _data = data[g0+1: g1-1].copy()
             self.add_speed_to_data(_data)
-            t     = _data["sec"] + _data["msec"]/1000
+            t     = _data["sec"]
+            if "msec" in _data.columns:
+                t     += _data["msec"]/1000
             _data = _data[cols].values
             t     = t.values
             print(f"{set_name}: slice with gaps removed len={len(_data)}")

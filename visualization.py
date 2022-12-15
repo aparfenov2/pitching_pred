@@ -77,14 +77,14 @@ def draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id=None, col
         ax.set_title(f"Переменная {cols[feature_id]}")
     ax.legend(loc='upper right')
 
-def make_preds_plot(fig, model : MyModel, y, freq: float, feature_id: int=None, cols: typing.List[str]=None):
+def make_preds_plot(fig, model : MyModel, y, window_len, future_len, feature_id: int=None, cols: typing.List[str]=None):
     # expected: tensors
     assert y.dim() == 2, str(y.dim())
 
-    future_len = int(5 * freq)
     ax = fig.gca()
     preds = []
     gts = []
+    y = y[:window_len]
     y = y[None, ...]
 
     en = model.make_preds_gen(y, future_len)

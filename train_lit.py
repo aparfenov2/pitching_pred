@@ -98,7 +98,12 @@ class LitPitchingPred(LightningModule):
         # preds plot
         if self.current_epoch % self.metrics_each == 0:
             fig = make_figure()
-            make_preds_plot(fig, self.model, y, freq, cols=col_names)
+            make_preds_plot(
+                fig, self.model, y,
+                window_len=int(20 * freq),
+                future_len=int(self.datamodule.future_len_s * freq),
+                cols=col_names
+                )
             fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f}")
             img = draw_to_image(fig)
             img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW

@@ -98,7 +98,7 @@ class MyModel(nn.Module):
 
                 pred_state = state.clone().detach()
                 preds = [output]
-                for _ in range(future_len - 1):
+                for _ in range(future_len):
                     output = self.forward_one_step(output, state=pred_state)
                     output = self.extend_with_static_features(output, input_delayed)
                     preds += [output]
