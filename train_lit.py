@@ -11,7 +11,7 @@ from visualization import make_validation_plots, draw_to_image, make_figure, mak
 from model import MyModel
 from metrics import get_all_metrics, metrics_to_pandas
 
-class LitPitchingPred(LightningModule):
+class LitPitchingPred(MyModel, LightningModule):
     def __init__(self,
         hidden_sz = 10,
         input_sz  = 1,
@@ -20,14 +20,13 @@ class LitPitchingPred(LightningModule):
         criterion = "MSELoss",
         metrics_each = 10
         ):
-        super(LitPitchingPred, self).__init__()
-
-        self.model = MyModel(
+        super(LitPitchingPred, self).__init__(
             hidden_sz=hidden_sz,
             input_sz=input_sz,
             output_sz=output_sz,
             num_lstm_layers=num_lstm_layers
-            )
+        )
+
         self.criterion = eval("nn." + criterion)()
         self.metrics_each = metrics_each
 
@@ -45,7 +44,7 @@ class LitPitchingPred(LightningModule):
         data, t = batch
         x = data[:, :-1]
         y = data[:, 1:]
-        out = self.model(x, extend_output_size_to_input=False)
+        out = self(x, extend_output_size_to_input=False)
         # assert out.shape == y[...,:out.shape[-1]].shape, str(out.shape) + " " + str(y[...,:out.shape[-1]].shape)
         loss = self.criterion(out, y[...,:out.shape[-1]])
         self.log("train_loss", loss, on_step=True)
@@ -57,7 +56,7 @@ class LitPitchingPred(LightningModule):
         y = data[:, 1:]
         future_len = int(self.datamodule.freq * self.datamodule.future_len_s)
         # print(x.shape, y.shape) # [32,999,1]
-        pred = self.model(x[:,:-future_len], future=future_len)
+        pred = self(x[:,:-future_len], future=future_len)
         loss = self.criterion(pred[:,:-future_len], y[:,:-future_len])
         pred_loss = self.criterion(pred[:,-future_len:], y[:,-future_len:])
         return loss, pred_loss
@@ -83,14 +82,14 @@ class LitPitchingPred(LightningModule):
         y = random.choice(y) # select random sequence from random batch
         assert y.dim() == 2 # L,F
 
-        num_feats = self.model.output_sz # y.size(1)
+        num_feats = self.output_sz # y.size(1)
         freq=self.datamodule.freq
         col_names = self.datamodule.cols
 
         figs = [make_figure() for i in range(num_feats)]
         axes = [fig.gca() for fig in figs]
 
-        make_validation_plots(axes=axes, model=self.model, y=y, freq=freq)
+        make_validation_plots(axes=axes, model=self, y=y, freq=freq)
 
         for i,fig in enumerate(figs):
             fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f} переменная {col_names[i]}")
@@ -102,7 +101,7 @@ class LitPitchingPred(LightningModule):
         if self.current_epoch % self.metrics_each == 0:
             fig = make_figure()
             make_preds_plot(
-                fig, self.model, y,
+                fig, self, y,
                 window_len=int(20 * freq),
                 future_len=int(self.datamodule.future_len_s * freq),
                 cols=col_names
@@ -116,7 +115,7 @@ class LitPitchingPred(LightningModule):
                 # calc metrics
                 mae_mean, mae_max, gts, preds, ts = get_all_metrics(
                     self.datamodule.test_dataloader(),
-                    model=self.model,
+                    model=self,
                     future_len=int(self.datamodule.future_len_s * freq)
                     )
                 for i, col in enumerate(col_names):

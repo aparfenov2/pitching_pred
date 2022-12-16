@@ -24,7 +24,7 @@ model.eval()
 
 dm = MyDataModule(**cfg['data'])
 
-mae_mean, mae_max, gts, preds, ts = get_all_metrics(dm.test_dataloader(), model=model.model, future_len=int(3 * dm.freq))
+mae_mean, mae_max, gts, preds, ts = get_all_metrics(dm.test_dataloader(), model=model, future_len=int(3 * dm.freq))
 print("mae_mean", mae_mean, "mae_max", mae_max)
 df = metrics_to_pandas(gts, preds, ts, dm.cols)
 df.to_csv('preds.csv', index=False, sep=' ')
