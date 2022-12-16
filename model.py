@@ -3,29 +3,32 @@ import torch.nn as nn
 
 
 class RNNState:
-    def __init__(self, bs, hidden_sz) -> None:
+    def __init__(self, bs, hidden_sz, num_lstm_layers, h_t=None, c_t=None) -> None:
         self.hidden_sz = hidden_sz
+        self.num_lstm_layers = num_lstm_layers
         self.bs = bs
         assert bs > 0
-        self.h_t = torch.zeros((bs, self.hidden_sz), dtype=torch.float32)
-        self.c_t = torch.zeros((bs, self.hidden_sz), dtype=torch.float32)
-        self.h_t2 = torch.zeros((bs, self.hidden_sz), dtype=torch.float32)
-        self.c_t2 = torch.zeros((bs, self.hidden_sz), dtype=torch.float32)
+        if h_t is not None:
+            self.h_t = [h_t[i].clone() for i in range(self.num_lstm_layers)]
+            self.c_t = [c_t[i].clone() for i in range(self.num_lstm_layers)]
+        else:
+            self.h_t = [torch.zeros((bs, self.hidden_sz), dtype=torch.float32) for _ in range(self.num_lstm_layers)]
+            self.c_t = [torch.zeros((bs, self.hidden_sz), dtype=torch.float32) for _ in range(self.num_lstm_layers)]
 
     def detach(self):
-        self.h_t.detach_()
-        self.c_t.detach_()
-        self.h_t2.detach_()
-        self.c_t2.detach_()
+        for i in range(self.num_lstm_layers):
+            self.h_t[i].detach_()
+            self.c_t[i].detach_()
         return self
 
     def clone(self):
-        new = RNNState(bs=self.bs, hidden_sz=self.hidden_sz)
-        new.h_t = self.h_t.clone()
-        new.h_t2 = self.h_t2.clone()
-        new.c_t = self.c_t.clone()
-        new.c_t2 = self.c_t2.clone()
-        return new
+        return RNNState(
+            bs=self.bs,
+            hidden_sz=self.hidden_sz,
+            num_lstm_layers=self.num_lstm_layers,
+            h_t=self.h_t,
+            c_t=self.c_t
+            )
 
 
 class MyModel(nn.Module):
@@ -33,21 +36,29 @@ class MyModel(nn.Module):
     def __init__(self,
         hidden_sz = 10,
         input_sz  = 1,
-        output_sz = 1
+        output_sz = 1,
+        num_lstm_layers = 2
         ):
         super(MyModel, self).__init__()
         self.hidden_sz = hidden_sz
         self.input_sz = input_sz
         self.output_sz = output_sz
-        self.lstm1 = nn.LSTMCell(self.input_sz, self.hidden_sz)
-        self.lstm2 = nn.LSTMCell(self.hidden_sz, self.hidden_sz)
+        self.num_lstm_layers = num_lstm_layers
+        self.lstm = nn.ModuleList(
+            nn.LSTMCell(
+                self.input_sz if i == 0 else self.hidden_sz,
+                self.hidden_sz
+                ) for i in range(self.num_lstm_layers)
+            )
         self.linear = nn.Linear(self.hidden_sz, self.output_sz)
 
     def forward_one_step(self, _input_t, state: RNNState):
         assert _input_t.dim() == 2 # b,f
-        state.h_t, state.c_t = self.lstm1(_input_t, (state.h_t, state.c_t))
-        state.h_t2, state.c_t2 = self.lstm2(state.h_t, (state.h_t2, state.c_t2))
-        return self.linear(state.h_t2)
+        inp = _input_t
+        for i in range(self.num_lstm_layers):
+            state.h_t[i], state.c_t[i] = self.lstm[i](inp, (state.h_t[i], state.c_t[i]))
+            inp = state.h_t[i]
+        return self.linear(inp)
 
     @staticmethod
     def extend_with_static_features(tensor, copy_from):
@@ -58,7 +69,7 @@ class MyModel(nn.Module):
 
     def forward(self, _input, future:int=0, extend_output_size_to_input=True):
         outputs = []
-        state = RNNState(bs=_input.size(0), hidden_sz=self.hidden_sz)
+        state = RNNState(bs=_input.size(0), hidden_sz=self.hidden_sz, num_lstm_layers=self.num_lstm_layers)
         assert self.input_sz ==_input.size(-1), f"{self.input_sz} {_input.size(-1)}"
 
         for _input_t in _input.split(1, dim=1):
@@ -81,7 +92,7 @@ class MyModel(nn.Module):
 
     def make_preds_gen(self, _input, future_len: int):
         assert _input.dim() == 3, str(_input.dim())
-        state = RNNState(bs=_input.size(0), hidden_sz=self.hidden_sz)
+        state = RNNState(bs=_input.size(0), hidden_sz=self.hidden_sz, num_lstm_layers=self.num_lstm_layers)
         delay_line = []
 
         with torch.no_grad():

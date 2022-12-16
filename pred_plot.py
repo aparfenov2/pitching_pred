@@ -8,8 +8,7 @@ import yaml
 import matplotlib.pyplot as plt
 
 from train_lit import LitPitchingPred
-from model import MyModel, RNNState
-from metrics import get_mse, get_mae, make_preds_gen
+from metrics import get_mse, get_mae
 from dataset import MyDataModule
 from visualization import draw_preds_plot
 
@@ -64,7 +63,7 @@ mse_max = 0
 mae_max = 0
 heat_metrics = max(window_size, int(50 * HZ))
 
-en = model.model.make_preds_gen(_input, model.model, future_len)
+en = model.model.make_preds_gen(_input, future_len)
 
 gts = []
 preds = []

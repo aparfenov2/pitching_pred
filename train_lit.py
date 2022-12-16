@@ -16,15 +16,17 @@ class LitPitchingPred(LightningModule):
         hidden_sz = 10,
         input_sz  = 1,
         output_sz = 1,
+        num_lstm_layers = 2,
         criterion = "MSELoss",
         metrics_each = 10
         ):
         super(LitPitchingPred, self).__init__()
 
         self.model = MyModel(
-            hidden_sz,
-            input_sz,
-            output_sz
+            hidden_sz=hidden_sz,
+            input_sz=input_sz,
+            output_sz=output_sz,
+            num_lstm_layers=num_lstm_layers
             )
         self.criterion = eval("nn." + criterion)()
         self.metrics_each = metrics_each
@@ -33,6 +35,7 @@ class LitPitchingPred(LightningModule):
             'hidden_sz': hidden_sz,
             'input_sz' : input_sz,
             'output_sz': output_sz,
+            'num_lstm_layers': num_lstm_layers
             })
 
     def set_datamodule(self, dm: MyDataModule):
