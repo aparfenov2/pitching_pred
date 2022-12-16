@@ -3,6 +3,7 @@ from tqdm import tqdm
 from torch.nn import functional as F
 from model import MyModel, RNNState
 import pandas as pd
+import torch.nn as nn
 
 def make_preds(y,t, model : MyModel, future_len, batch_n=None, batch_total=None):
     # expected: tensors
@@ -30,6 +31,55 @@ def get_mse(_input, target):
 def get_mae(_input, target):
     mae = F.l1_loss(_input, target, reduction='none')
     return mae.mean(axis=1), mae.max(axis=1).values
+
+
+def relative_mae_metric(
+    y: torch.Tensor,
+    y_hat: torch.Tensor,
+    sample_frq: float,
+    window_size_s=30,
+    return_average_per_feature=False,
+    future_len_s: int=0
+    ):
+    assert y.dim() == 3 # N,L,F
+    assert sample_frq > 0
+    window_size = int(window_size_s * sample_frq)
+    future_len = int(future_len_s * sample_frq)
+    if future_len > 0:
+        if future_len > window_size:
+            raise Exception(f"future_len {future_len} > window_size {window_size}")
+    if window_size > y.shape[1]:
+        raise Exception(f"y.shape {y.shape} window_size {window_size} > y.shape[1] {y.shape[1]} window_size_s {window_size_s} sample_frq {sample_frq}")
+    # print("DBG", "y.shape", y.shape) # 12, 987, 3
+    # print("DBG", "y", y) # 12, 987, 3
+    unfolded_y = y.unfold(dimension=1, size=window_size, step=window_size // 2) # 12, 15, 3, 120
+    diff = y - y_hat
+    unfolded_diff = diff.unfold(dimension=1, size=window_size, step=window_size // 2)
+    y_ranges_min = unfolded_y.min(dim=-1).values # 4,5,2
+    y_ranges_max = unfolded_y.max(dim=-1).values
+    y_ranges = y_ranges_max - y_ranges_min + 1e-5
+    y_ranges = y_ranges[..., None] # 4,5,2,1
+    ret = unfolded_diff.abs().div(y_ranges.abs()) # 4,5,2,36
+    if future_len > 0:
+        # apply max on only the last window
+        ret = ret[:,-1:,:,-future_len:]
+        if return_average_per_feature:
+            return ret.max(dim=(0,1,3))
+        return ret.max()
+
+    if return_average_per_feature:
+        return ret.mean(dim=(0,1,3))
+    return ret.mean()
+
+class RelativeMAELoss(nn.Module):
+    def __init__(self, **kwargs,
+    ) -> None:
+        super().__init__()
+        self.kwargs = kwargs
+
+    def forward(self, y, y_hat):
+        return relative_mae_metric(y, y_hat, **self.kwargs)
+
 
 def get_all_metrics(test_dl, model, future_len, skip_len=100):
     mae_means = []

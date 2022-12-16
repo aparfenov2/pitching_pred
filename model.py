@@ -37,7 +37,8 @@ class MyModel(nn.Module):
         hidden_sz = 10,
         input_sz  = 1,
         output_sz = 1,
-        num_lstm_layers = 2
+        num_lstm_layers = 2,
+        use_skip_conns = True
         ):
         super(MyModel, self).__init__()
         self.hidden_sz = hidden_sz
@@ -46,18 +47,21 @@ class MyModel(nn.Module):
         self.num_lstm_layers = num_lstm_layers
         self.lstm = nn.ModuleList(
             nn.LSTMCell(
-                self.input_sz if i == 0 else self.hidden_sz,
+                self.input_sz if i == 0 else self.hidden_sz + self.input_sz if use_skip_conns else self.hidden_sz,
                 self.hidden_sz
                 ) for i in range(self.num_lstm_layers)
             )
-        self.linear = nn.Linear(self.hidden_sz, self.output_sz)
+        self.linear = nn.Linear(
+            self.hidden_sz + self.input_sz if use_skip_conns else self.hidden_sz,
+            self.output_sz
+            )
 
     def forward_one_step(self, _input_t, state: RNNState):
         assert _input_t.dim() == 2 # b,f
         inp = _input_t
         for i in range(self.num_lstm_layers):
             state.h_t[i], state.c_t[i] = self.lstm[i](inp, (state.h_t[i], state.c_t[i]))
-            inp = state.h_t[i]
+            inp = torch.cat([state.h_t[i], _input_t], dim=-1)
         return self.linear(inp)
 
     @staticmethod

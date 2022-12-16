@@ -30,12 +30,10 @@ class MyDataModule(LightningDataModule):
         L=1000,
         freq=50/4,
         base_freq=50,
-        future_len_s=3
     ):
         super().__init__()
 
         self.freq = freq
-        self.future_len_s = future_len_s
         self.base_freq = base_freq
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
