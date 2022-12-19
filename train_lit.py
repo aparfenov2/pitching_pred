@@ -105,7 +105,7 @@ class LitPitchingPred(LightningModule):
             ds_name = os.path.splitext(os.path.basename(test_dl.dataset.name))[0]
             print(f"--------- processing {ds_name} --------")
             # calc metrics
-            rel_mae_mean, rel_mae_max, gts, preds, ts = get_all_metrics(
+            metrics, gts, preds, ts = get_all_metrics(
                 test_dl=test_dl,
                 model=self.model,
                 sample_frq=freq,
@@ -113,14 +113,12 @@ class LitPitchingPred(LightningModule):
                 )
 
             for i, col in enumerate(col_names):
-                self.log(f"{ds_name}: rel_mae_mean_{col}", rel_mae_mean[i].item(), on_step=False, on_epoch=True, logger=True)
-                self.log(f"{ds_name}: rel_mae_max_{col}", rel_mae_max[i].item(), on_step=False, on_epoch=True, logger=True)
+                for k,v in metrics.items():
+                    self.log(f"{ds_name}: {col}: {k}", v[i].item(), on_step=False, on_epoch=True, logger=True)
 
-            rel_mae_mean = {f"rel_mae_mean_{col}": rel_mae_mean[i].item() for i, col in enumerate(col_names)}
-            rel_mae_max = {f"rel_mae_max_{col}": rel_mae_max[i].item() for i, col in enumerate(col_names)}
             _json = {
-                **rel_mae_mean,
-                **rel_mae_max
+                col : {k : v[i].item() for k,v in metrics.items()}
+                    for i, col in enumerate(col_names)
             }
             fn = self.logger.log_dir + f'/preds_{ds_name}.json'
             with open(fn, 'w') as f:
@@ -209,7 +207,7 @@ class MyLightningCLI(LightningCLI):
 
 
 def cli_main():
-    cli = MyLightningCLI(
+    MyLightningCLI(
         LitPitchingPred, MyDataModule,
         seed_everything_default=1234,
         save_config_overwrite=True,

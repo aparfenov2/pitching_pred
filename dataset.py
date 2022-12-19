@@ -28,6 +28,8 @@ class MyDataModule(LightningDataModule):
         batch_size: int = 32,
         test_batch_size: int = 8,
         test_L=30000,
+        train_multiply=1,
+        test_multiply=1,
         L=1000,
         freq=50/4,
         base_freq=50,
@@ -41,23 +43,22 @@ class MyDataModule(LightningDataModule):
         self.cols = cols
         self.test_L = test_L
         self.L = L
-        self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train:"+fn_train)
-        self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="val:"+fn_train)
+        self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train:"+fn_train, multiply=train_multiply)
+        self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="val:"+fn_train, multiply=1)
         if isinstance(fn_test, str):
-            self.test_set = self.read_data_and_make_dataset(fn_test, cols, L=test_L, set_name="test:"+fn_test)
-        else:
-            self.test_set = [self.read_data_and_make_dataset(fn, cols, L=test_L, set_name="test:"+fn) for fn in fn_test]
+            fn_test = [fn_test]
+        self.test_set = [self.read_data_and_make_dataset(fn, cols, L=test_L, set_name="test:"+fn, multiply=test_multiply) for fn in fn_test]
 
     @staticmethod
     def add_speed_to_data(_data):
         for col in _data.columns:
             _data[f"{col}_v"] = _data[col].shift(20, fill_value=0) - _data[col]
 
-    def read_data_and_make_dataset(self, fn, cols, L, set_name):
+    def read_data_and_make_dataset(self, fn, cols, L, set_name, multiply):
 
         data = pd.read_csv(fn, sep=" ")
         gaps = self._find_gaps(data)
-        gaps = [0, *gaps, len(data)]
+        gaps = [0, *gaps, len(data)] * multiply
         print(set_name, gaps)
 
         datas = []
@@ -65,6 +66,8 @@ class MyDataModule(LightningDataModule):
         divider = int(self.base_freq / self.freq)
 
         for g0,g1 in zip(gaps, gaps[1:] ):
+            if g0 > g1:
+                continue
             _data = data[g0+1: g1-1].copy()
             self.add_speed_to_data(_data)
             t     = _data["sec"]
@@ -72,13 +75,13 @@ class MyDataModule(LightningDataModule):
                 t     += _data["msec"]/1000
             _data = _data[cols].values
             t     = t.values
-            print(f"{set_name}: slice with gaps removed len={len(_data)}")
+            # print(f"{set_name}: slice with gaps removed len={len(_data)}")
             _data = _data[::divider]
             t     = t[::divider]
-            print(f"{set_name}: slice after divider {divider} len={len(_data)}")
+            # print(f"{set_name}: slice after divider {divider} len={len(_data)}")
             _data = _data[:(len(_data)//L)*L]
             t     =     t[:(len(_data)//L)*L]
-            print(f"{set_name}: slice after L {L} len={len(_data)}")
+            # print(f"{set_name}: slice after L {L} len={len(_data)}")
             if len(_data.shape) == 1:
                 _data = _data.reshape(-1, L, 1).astype('float32')
             else:
@@ -113,7 +116,7 @@ class MyDataModule(LightningDataModule):
 
     def test_dataloader(self):
         if not isinstance(self.test_set, list):
-            return DataLoader(self.test_set, batch_size=self.test_batch_size, num_workers=1)
+            return [DataLoader(self.test_set, batch_size=self.test_batch_size, num_workers=1)]
         return [DataLoader(ts, batch_size=self.test_batch_size, num_workers=1) for ts in self.test_set]
 
     def predict_dataloader(self):

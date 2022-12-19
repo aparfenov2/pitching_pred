@@ -105,15 +105,24 @@ def get_all_metrics(test_dl, model, sample_frq, future_len_s, skip_len_s=10):
         preds += [torch.stack(_preds[skip_len:], axis=1).reshape(-1, n_feats)]
         ts += [torch.stack(_ts[skip_len:], axis=1).reshape(-1, n_feats)]
 
-    tgts = torch.cat(gts, axis=0).unsqueeze(0)
+    tgts = torch.cat(gts, axis=0).unsqueeze(0) # make it (1, N*L, F)
     tpreds = torch.cat(preds, axis=0).unsqueeze(0)
     assert tgts.dim() == tpreds.dim() == 3, f"tgts.shape {tgts.shape} tpreds.shape {tpreds.shape}"
 
-    ret = _relative_mae_metric(y=tgts, y_hat=tpreds, sample_frq=sample_frq)
+    rel_mae = _relative_mae_metric(y=tgts, y_hat=tpreds, sample_frq=sample_frq)
+    mae = get_mae(tgts, tpreds)
+    mse = get_mse(tgts, tpreds)
+    metrics = {
+        "rel_mae.mean": rel_mae.mean(dim=(0,1,3)),
+        "rel_mae.max": rel_mae.max(dim=3).values.max(dim=1).values.max(dim=0).values,
+        "mae.mean" : mae[0],
+        "mae.max" : mae[1],
+        "mse.mean" : mse[0],
+        "mse.max" : mse[1],
+    }
 
     return (
-        ret.mean(dim=(0,1,3)),
-        ret.max(dim=3).values.max(dim=1).values.max(dim=0).values,
+        metrics,
         gts, preds, ts,
         )
 

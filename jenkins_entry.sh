@@ -17,6 +17,7 @@ DOCKER_TI="-i"
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --train) TRAIN=1;;
+        --ckpt) CKPT="$2"; shift ;;
         --config) CONFIG="$2"; shift ;;
         --eval) EVAL=1;;
         --daemon) DOCKER_TI="-d";;
@@ -187,6 +188,11 @@ export PYTHONUNBUFFERED=1
 # export PYTHONPATH="/cdir/fast-reid"
 
 # nvidia-smi -l 120 --query-gpu=timestamp,memory.used --format=csv | tee gpu.log &
+function find_last_ckpt {
+find $1 -name "*.ckpt" -print0 |
+    xargs -r -0 ls -1 -t |
+    head -1
+}
 
 [ -n "${TRAIN}" ] && {
     # rm -rf lightning_logs/* || true
@@ -194,8 +200,9 @@ export PYTHONUNBUFFERED=1
         tensorboard --logdir=lightning_logs &
         tensorboard_pid=$!
     }
-    # python train_lit.py fit -c ${CONFIG} 2>&1 | tee train.log
-    python train_lit.py "test" -c ${CONFIG} 2>&1 | tee test.log
+    python train_lit.py fit -c ${CONFIG} 2>&1 | tee train.log
+    CKPT=$(find_last_ckpt lightning_logs)
+    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT 2>&1 | tee test.log
 
     [ -n "${tensorboard_pid}" ] && {
         kill ${tensorboard_pid} || true
@@ -204,6 +211,9 @@ export PYTHONUNBUFFERED=1
 }
 
 [ -n "${EVAL}" ] && {
-    echo "eval not implemented"
+    [ -z "$CKPT" ] && {
+        CKPT=$(find_last_ckpt lightning_logs)
+    }
+    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT 2>&1 | tee test.log
     exit 0
 }

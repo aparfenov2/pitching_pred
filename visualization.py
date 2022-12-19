@@ -48,7 +48,7 @@ def draw_to_image(fig):
     img = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
     width, height = fig.get_size_inches() * fig.get_dpi()
     img = img.reshape(int(height), int(width), 3)
-    return img
+    return img[...,::-1]
 
 def draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id=None, cols=None):
     # expected: numpy arrays [[bs,1,feat] ...]

@@ -1,6 +1,2 @@
-__pycache__/dataset.cpython-310.pyc
-__pycache__/metrics.cpython-310.pyc
-__pycache__/model_test.cpython-310.pyc
-__pycache__/model.cpython-310.pyc
-__pycache__/train_lit.cpython-310.pyc
-__pycache__/visualization.cpython-310.pyc
+__pycache__/*
+.vscode/*
