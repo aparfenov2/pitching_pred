@@ -7,7 +7,6 @@ import torch.nn as nn
 
 def make_preds(y,t, model : MyModel, future_len, batch_n=None, batch_total=None):
     # expected: tensors
-
     en = model.make_preds_gen(y, future_len)
     batch_n_str = ""
     if batch_n is not None:
@@ -22,6 +21,8 @@ def make_preds(y,t, model : MyModel, future_len, batch_n=None, batch_total=None)
     preds = [pred for gt, pred in gt_preds]
     ts = t[:, future_len-1:].split(1, dim=1)
     assert len(gts) == len(preds) == len(ts), f"{len(gts)} == {len(preds)} == {len(ts)}"
+    assert gts[0].shape == preds[0].shape
+    assert ts[0].shape[:-1] == gts[0].shape[:-1], f"ts[0].shape {ts[0].shape} gts[0].shape {gts[0].shape}"
     return gts, preds, ts
 
 def get_mse(_input, target):
@@ -33,25 +34,17 @@ def get_mae(_input, target):
     return mae.mean(axis=1), mae.max(axis=1).values
 
 
-def relative_mae_metric(
+def _relative_mae_metric(
     y: torch.Tensor,
     y_hat: torch.Tensor,
     sample_frq: float,
     window_size_s=30,
-    return_average_per_feature=False,
-    future_len_s: int=0
     ):
-    assert y.dim() == 3 # N,L,F
+    assert y.dim() == 3, str(y.shape) # N,L,F
     assert sample_frq > 0
     window_size = int(window_size_s * sample_frq)
-    future_len = int(future_len_s * sample_frq)
-    if future_len > 0:
-        if future_len > window_size:
-            raise Exception(f"future_len {future_len} > window_size {window_size}")
     if window_size > y.shape[1]:
         raise Exception(f"y.shape {y.shape} window_size {window_size} > y.shape[1] {y.shape[1]} window_size_s {window_size_s} sample_frq {sample_frq}")
-    # print("DBG", "y.shape", y.shape) # 12, 987, 3
-    # print("DBG", "y", y) # 12, 987, 3
     unfolded_y = y.unfold(dimension=1, size=window_size, step=window_size // 2) # 12, 15, 3, 120
     diff = y - y_hat
     unfolded_diff = diff.unfold(dimension=1, size=window_size, step=window_size // 2)
@@ -60,6 +53,24 @@ def relative_mae_metric(
     y_ranges = y_ranges_max - y_ranges_min + 1e-5
     y_ranges = y_ranges[..., None] # 4,5,2,1
     ret = unfolded_diff.abs().div(y_ranges.abs()) # 4,5,2,36
+    return ret
+
+def relative_mae_metric(
+    y: torch.Tensor,
+    y_hat: torch.Tensor,
+    sample_frq: float,
+    window_size_s=30,
+    return_average_per_feature=False,
+    future_len_s: int=0
+    ):
+    window_size = int(window_size_s * sample_frq)
+    future_len = int(future_len_s * sample_frq)
+    if future_len > 0:
+        if future_len > window_size:
+            raise Exception(f"future_len {future_len} > window_size {window_size}")
+
+    ret = _relative_mae_metric(y, y_hat, sample_frq, window_size_s)
+
     if future_len > 0:
         # apply max on only the last window
         ret = ret[:,-1:,:,-future_len:]
@@ -81,42 +92,36 @@ class RelativeMAELoss(nn.Module):
         return relative_mae_metric(y, y_hat, **self.kwargs)
 
 
-def get_all_metrics(test_dl, model, future_len, skip_len=100):
-    mae_means = []
-    mae_maxes = []
+def get_all_metrics(test_dl, model, sample_frq, future_len_s, skip_len_s=10):
+    future_len = future_len_s * sample_frq
+    skip_len = skip_len_s * sample_frq
     gts = []
     preds = []
     ts = []
     for i,(y,t) in enumerate(test_dl):
+        n_feats = y.shape[-1]
         _gts, _preds, _ts = make_preds(y,t, model, future_len, batch_n=i, batch_total=len(test_dl))
+        gts += [torch.stack(_gts[skip_len:], axis=1).reshape(-1, n_feats)]
+        preds += [torch.stack(_preds[skip_len:], axis=1).reshape(-1, n_feats)]
+        ts += [torch.stack(_ts[skip_len:], axis=1).reshape(-1, n_feats)]
 
-        tts = torch.stack(_ts, axis=1)[:,skip_len:]
-        tgts = torch.stack(_gts, axis=1)[:,skip_len:]
-        tpreds = torch.stack(_preds, axis=1)[:,skip_len:]
+    tgts = torch.cat(gts, axis=0).unsqueeze(0)
+    tpreds = torch.cat(preds, axis=0).unsqueeze(0)
+    assert tgts.dim() == tpreds.dim() == 3, f"tgts.shape {tgts.shape} tpreds.shape {tpreds.shape}"
 
-        ts += [_t.squeeze(dim=0) for _t in tts.split(1, dim=0)]
-        gts += [_t.squeeze(dim=0) for _t in tgts.split(1, dim=0)]
-        preds += [_t.squeeze(dim=0) for _t in tpreds.split(1, dim=0)]
+    ret = _relative_mae_metric(y=tgts, y_hat=tpreds, sample_frq=sample_frq)
 
-        mae_mean, mae_max = get_mae(tgts, tpreds) # 4, 2
-        mae_means += [mae_mean]
-        mae_maxes += [mae_max]
-        # if i>0: break
-
-    mae_means = torch.cat(mae_means)
-    mae_maxes = torch.cat(mae_maxes)
-    assert len(gts) == len(preds) == len(ts), f"{len(gts)} == {len(preds)} == {len(ts)}"
     return (
-        torch.mean(mae_means, axis=0),
-        torch.max(mae_maxes, axis=0).values,
+        ret.mean(dim=(0,1,3)),
+        ret.max(dim=3).values.max(dim=1).values.max(dim=0).values,
         gts, preds, ts,
         )
 
 def metrics_to_pandas(gts, preds, ts, cols):
     # expects: lists of tensors
-    tts = torch.cat(ts, axis=0).detach().numpy()
-    tgts = torch.cat(gts, axis=0).detach().numpy()
-    tpreds = torch.cat(preds, axis=0).detach().numpy()
+    tts = torch.cat(ts, axis=0).numpy()
+    tgts = torch.cat(gts, axis=0).numpy()
+    tpreds = torch.cat(preds, axis=0).numpy()
     print("metrics_to_pandas: shapes ", tgts.shape, tpreds.shape, tts.shape)
 
     df = pd.DataFrame()

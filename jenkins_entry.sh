@@ -194,7 +194,9 @@ export PYTHONUNBUFFERED=1
         tensorboard --logdir=lightning_logs &
         tensorboard_pid=$!
     }
-    python train_lit.py fit -c ${CONFIG} 2>&1 | tee train.log
+    # python train_lit.py fit -c ${CONFIG} 2>&1 | tee train.log
+    python train_lit.py "test" -c ${CONFIG} 2>&1 | tee test.log
+
     [ -n "${tensorboard_pid}" ] && {
         kill ${tensorboard_pid} || true
     }

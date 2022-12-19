@@ -7,9 +7,10 @@ from pytorch_lightning import LightningDataModule
 import unittest
 
 class MyDataset(Dataset):
-    def __init__(self, data, t):
+    def __init__(self, data, t, name):
         self.data = data
         self.t = t
+        self.name = name
 
     def __len__(self):
         return len(self.data)
@@ -40,9 +41,12 @@ class MyDataModule(LightningDataModule):
         self.cols = cols
         self.test_L = test_L
         self.L = L
-        self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train")
-        self.val_set = self.read_data_and_make_dataset(fn_test, cols, L=L, set_name="val")
-        self.test_set = self.read_data_and_make_dataset(fn_test, cols, L=test_L, set_name="test")
+        self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train:"+fn_train)
+        self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="val:"+fn_train)
+        if isinstance(fn_test, str):
+            self.test_set = self.read_data_and_make_dataset(fn_test, cols, L=test_L, set_name="test:"+fn_test)
+        else:
+            self.test_set = [self.read_data_and_make_dataset(fn, cols, L=test_L, set_name="test:"+fn) for fn in fn_test]
 
     @staticmethod
     def add_speed_to_data(_data):
@@ -86,7 +90,7 @@ class MyDataModule(LightningDataModule):
         t    = np.concatenate(ts,    axis=0)
         assert len(t) == len(data), str(len(t)) + ' ' + str(len(data))
         print(f"{set_name}: data.shape {data.shape}")
-        return MyDataset(data, t)
+        return MyDataset(data, t, set_name)
 
     def train_val_dataset(dataset, val_split=0.25):
         train_idx, val_idx = train_test_split(list(range(len(dataset))), test_size=val_split)
@@ -102,16 +106,18 @@ class MyDataModule(LightningDataModule):
         return np.where(abs(np.diff(a))>threshold)[0] + 1
 
     def train_dataloader(self):
-        return DataLoader(self.train_set, batch_size=self.batch_size, num_workers=2)
+        return DataLoader(self.train_set, batch_size=self.batch_size, num_workers=1)
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, batch_size=self.batch_size, num_workers=2)
+        return DataLoader(self.val_set, batch_size=self.batch_size, num_workers=1)
 
     def test_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.test_batch_size, num_workers=2)
+        if not isinstance(self.test_set, list):
+            return DataLoader(self.test_set, batch_size=self.test_batch_size, num_workers=1)
+        return [DataLoader(ts, batch_size=self.test_batch_size, num_workers=1) for ts in self.test_set]
 
     def predict_dataloader(self):
-        return DataLoader(self.test_set, batch_size=1, num_workers=2)
+        return DataLoader(self.test_set, batch_size=1, num_workers=1)
 
 
 class MyDataModuleUT(unittest.TestCase):
