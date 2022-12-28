@@ -21,31 +21,25 @@ from metrics import get_all_metrics, metrics_to_pandas, RelativeMAELoss, make_pr
 
 class LitPitchingPred(LightningModule):
     def __init__(self,
-        hidden_sz = 10,
-        input_sz  = 1,
-        output_sz = 1,
-        num_lstm_layers = 2,
-        use_skip_conns=True,
-        train_future_len_s = 3,
-
         criterion = "MSELoss",
         # params shared with datamodule
         metrics_each = 10,
         freq = 50,
         future_len_s=3,
+        train_future_len_s = 3,
         cols = ['KK'],
-        model_name = "MyModel"
+        model_class_path = "MyModel",
+        model_init_args = {
+            "hidden_sz" : 10,
+            "input_sz"  : 1,
+            "output_sz" : 1,
+            "num_lstm_layers" : 2,
+            "use_skip_conns" : True,
+        }
         ):
-        hparams = {
-            'hidden_sz': hidden_sz,
-            'input_sz' : input_sz,
-            'output_sz': output_sz,
-            'num_lstm_layers': num_lstm_layers,
-            'use_skip_conns': use_skip_conns
-            }
         super(LitPitchingPred, self).__init__()
-        self.save_hyperparameters(hparams)
-        self.model = eval(model_name)(**hparams)
+        self.save_hyperparameters(model_init_args)
+        self.model = eval(model_class_path)(**model_init_args)
 
         self.metrics_each = metrics_each
         self.freq = freq
