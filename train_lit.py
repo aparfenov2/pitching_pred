@@ -26,6 +26,7 @@ class LitPitchingPred(LightningModule):
         output_sz = 1,
         num_lstm_layers = 2,
         use_skip_conns=True,
+        train_future_len_s = 3,
 
         criterion = "MSELoss",
         # params shared with datamodule
@@ -49,6 +50,7 @@ class LitPitchingPred(LightningModule):
         self.metrics_each = metrics_each
         self.freq = freq
         self.future_len_s = future_len_s
+        self.train_future_len_s = train_future_len_s
         self.cols = cols
 
         if criterion == 'RelativeMAELoss':
@@ -67,9 +69,10 @@ class LitPitchingPred(LightningModule):
         data, t = batch
         x = data[:, :-1]
         y = data[:, 1:]
-        out = self(x, extend_output_size_to_input=False)
+        future_len = int(self.freq * self.train_future_len_s)
+        out = self(x[:,:-future_len], future=future_len, extend_output_size_to_input=False)
         # assert out.shape == y[...,:out.shape[-1]].shape, str(out.shape) + " " + str(y[...,:out.shape[-1]].shape)
-        loss = self.criterion(out, y[...,:out.shape[-1]])
+        loss = self.criterion(out, y)
         self.log("train_loss", loss)
         return loss
 
@@ -141,6 +144,7 @@ class LitPitchingPred(LightningModule):
                 )
             fig.suptitle(f"ds_name {ds_name}")
             img = draw_to_image(fig)
+            img = img[...,::-1]
 
             fn = self.logger.log_dir + f"/test_img_pred_{ds_name}.jpg"
             os.makedirs(os.path.dirname(fn), exist_ok=True)
