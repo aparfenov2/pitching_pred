@@ -1,25 +1,25 @@
 import torch
 from tqdm import tqdm
 from torch.nn import functional as F
-from model import MyModel, RNNState
 import pandas as pd
 import torch.nn as nn
 
-def make_preds(y,t, model : MyModel, future_len, batch_n=None, batch_total=None):
+def make_preds(y,t, model, future_len, batch_n=None, batch_total=None):
     # expected: tensors
-    en = model.make_preds_gen(y, future_len)
     batch_n_str = ""
     if batch_n is not None:
         if batch_total is None:
             batch_n_str = " (batch " + str(batch_n + 1) + ")"
         else:
             batch_n_str = " (batch " + str(batch_n + 1) + " of " + str(batch_total) +")"
-
-    en = tqdm(en, total=y.shape[1], desc="calculate test metrics" + batch_n_str + " bsz " + str(y.shape[0]))
-    gt_preds = list((gt, pred) for gt, pred,_ in en)
+    with torch.no_grad():
+        en = model.make_preds_gen(y, future_len)
+        en = tqdm(en, total=y.shape[1], desc="calculate test metrics" + batch_n_str + " bsz " + str(y.shape[0]))
+        gt_preds = list((gt, pred) for gt, pred,_ in en)
     gts = [gt for gt, pred in gt_preds]
     preds = [pred for gt, pred in gt_preds]
     ts = t[:, future_len-1:].split(1, dim=1)
+    ts = ts[:len(preds)]
     assert len(gts) == len(preds) == len(ts), f"{len(gts)} == {len(preds)} == {len(ts)}"
     assert gts[0].shape == preds[0].shape
     assert ts[0].shape[:-1] == gts[0].shape[:-1], f"ts[0].shape {ts[0].shape} gts[0].shape {gts[0].shape}"

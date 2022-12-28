@@ -1,22 +1,18 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
 import random
-import argparse
-import yaml
 import cv2
 import os
 import json
 from typing import Any
 
+import torch.nn as nn
+
 from pytorch_lightning.cli import LightningCLI
 from pytorch_lightning import cli_lightning_logo, LightningModule
-from pytorch_lightning.trainer import Trainer
-from pytorch_lightning.callbacks import TQDMProgressBar
 
+import models
 from dataset import MyDataModule
 from visualization import make_validation_plots, draw_to_image, make_figure, make_preds_plot, draw_preds_plot
-from model import MyModel
 from metrics import get_all_metrics, metrics_to_pandas, RelativeMAELoss, make_preds
 
 class LitPitchingPred(LightningModule):

@@ -6,9 +6,8 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from model import MyModel
 
-def make_validation_plots(axes, model: MyModel, y, freq: float, current_epoch:int = None, col_names=None):
+def make_validation_plots(axes, model, y, freq: float, current_epoch:int = None, col_names=None):
 
     assert y.dim() == 2, str(y.dim())
 
@@ -77,7 +76,7 @@ def draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id=None, col
         ax.set_title(f"Переменная {cols[feature_id]}")
     ax.legend(loc='upper right')
 
-def make_preds_plot(fig, model : MyModel, y, window_len, future_len, feature_id: int=None, cols: typing.List[str]=None):
+def make_preds_plot(fig, model, y, window_len, future_len, feature_id: int=None, cols: typing.List[str]=None):
     # expected: tensors
     assert y.dim() == 2, str(y.dim())
 

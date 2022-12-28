@@ -14,8 +14,8 @@ df = df[args.skip:]
 if args.to is not None:
     df = df[:args.to]
 if args.x_is_sec:
-    df.plot(x='sec')
+    df.plot(x='sec', style='x-', grid=True)
 else:
     df = df.drop('sec', axis=1)
-    df.plot()
+    df.plot(style='x-', grid=True)
 plt.show()

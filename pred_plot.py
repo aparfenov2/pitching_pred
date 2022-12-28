@@ -18,7 +18,7 @@ mpl.use('TkAgg')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('config')
-parser.add_argument('weights_path')
+parser.add_argument('--weights-path')
 parser.add_argument('--data-path')
 parser.add_argument('--feature-id', type=int)
 
@@ -27,11 +27,13 @@ args = parser.parse_args()
 with open(args.config, 'r') as stream:
     cfg = yaml.safe_load(stream)
 
-# model = LitPitchingPred()
-model = LitPitchingPred.load_from_checkpoint(
-    args.weights_path,
-    **cfg['model']
-    )
+if args.weights_path is not None:
+    model = LitPitchingPred.load_from_checkpoint(
+        args.weights_path,
+        **cfg['model']
+        )
+else:
+    model = LitPitchingPred(**cfg['model'])
 model.eval()
 
 data_path = cfg['data']['fn_test']
