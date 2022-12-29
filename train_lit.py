@@ -134,11 +134,10 @@ class LitPitchingPred(LightningModule):
                 )
             fig.suptitle(f"ds_name {ds_name}")
             img = draw_to_image(fig)
-            img = img[...,::-1]
 
             fn = self.logger.log_dir + f"/test_img_pred_{ds_name}.jpg"
             os.makedirs(os.path.dirname(fn), exist_ok=True)
-            cv2.imwrite(filename=fn, img=img)
+            cv2.imwrite(filename=fn, img=img[...,::-1])
 
     @staticmethod
     def sample_random_y(val_dl):
@@ -170,7 +169,7 @@ class LitPitchingPred(LightningModule):
 
             fn = self.logger.log_dir + '/val_imgs/' + f"test_img_{col_names[i]}_{self.current_epoch}.jpg"
             os.makedirs(os.path.dirname(fn), exist_ok=True)
-            cv2.imwrite(filename=fn, img=img)
+            cv2.imwrite(filename=fn, img=img[...,::-1])
 
             img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
             self.logger.experiment.add_image(f"test_img_{col_names[i]}", img)
@@ -188,7 +187,7 @@ class LitPitchingPred(LightningModule):
 
         fn = self.logger.log_dir + '/val_preds/' + f"test_img_pred_{self.current_epoch}.jpg"
         os.makedirs(os.path.dirname(fn), exist_ok=True)
-        cv2.imwrite(filename=fn, img=img)
+        cv2.imwrite(filename=fn, img=img[...,::-1])
 
         img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
         self.logger.experiment.add_image(f"test_img_pred", img)

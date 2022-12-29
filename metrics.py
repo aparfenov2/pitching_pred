@@ -3,6 +3,7 @@ from tqdm import tqdm
 from torch.nn import functional as F
 import pandas as pd
 import torch.nn as nn
+from models import TimeSeries
 
 def make_preds(y,t, model, future_len, batch_n=None, batch_total=None):
     # expected: tensors
@@ -13,16 +14,17 @@ def make_preds(y,t, model, future_len, batch_n=None, batch_total=None):
         else:
             batch_n_str = " (batch " + str(batch_n + 1) + " of " + str(batch_total) +")"
     with torch.no_grad():
-        en = model.make_preds_gen(y, future_len)
+        en = model.make_preds_gen(TimeSeries(t,y), future_len)
         en = tqdm(en, total=y.shape[1], desc="calculate test metrics" + batch_n_str + " bsz " + str(y.shape[0]))
-        gt_preds = list((gt, pred) for gt, pred,_ in en)
-    gts = [gt for gt, pred in gt_preds]
-    preds = [pred for gt, pred in gt_preds]
-    ts = t[:, future_len-1:].split(1, dim=1)
-    ts = ts[:len(preds)]
+        en = list(en)
+    ts = [e[0] for e in en]
+    gts = [e[1] for e in en]
+    preds = [e[2] for e in en]
+    # ts = t[:, future_len-1:].split(1, dim=1)
+    # ts = ts[:len(preds)]
     assert len(gts) == len(preds) == len(ts), f"{len(gts)} == {len(preds)} == {len(ts)}"
-    assert gts[0].shape == preds[0].shape
-    assert ts[0].shape[:-1] == gts[0].shape[:-1], f"ts[0].shape {ts[0].shape} gts[0].shape {gts[0].shape}"
+    assert gts[0].dim() == 3 and gts[0].shape == preds[0].shape
+    assert ts[0].dim() == 3 and ts[0].shape[:-1] == gts[0].shape[:-1] and ts[0].size(2) == 1, f"ts[0].shape {ts[0].shape} gts[0].shape {gts[0].shape}"
     return gts, preds, ts
 
 def get_mse(_input, target):

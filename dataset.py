@@ -86,7 +86,7 @@ class MyDataModule(LightningDataModule):
                 _data = _data.reshape(-1, L, 1).astype('float32')
             else:
                 _data = _data.reshape(-1, L, _data.shape[-1]).astype('float32')
-            t     = t.reshape(-1, L)
+            t     = t.reshape(-1, L, 1)
             datas += [_data]
             ts    += [t]
         data = np.concatenate(datas, axis=0)
