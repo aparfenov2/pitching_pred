@@ -1,13 +1,19 @@
 import torch
 import torch.nn as nn
-from .base import TimeSeries
+from .base import TimeSeries, ModelBase
 
-class MeanModel(nn.Module):
+class MeanModel(ModelBase):
     def __init__(self,
-        history_len
+        history_len=None,
+        history_len_s=None,
+        freq=None,
+        **kvargs
     ):
         super().__init__()
-        self.history_len = history_len
+        if history_len is not None:
+            self.history_len = history_len
+        else:
+            self.history_len = int(freq * history_len_s)
         self.stub_ff = nn.Linear(1,1)
 
     def forward(self, y, future:int=0, **kwargs):
@@ -33,15 +39,3 @@ class MeanModel(nn.Module):
                 torch.cat([t_0, t_fut], dim=1),
                 torch.cat([y_0, p_fut], dim=1)
                 )
-
-    def make_preds(self, ts: TimeSeries, future_len: int):
-        en = self.make_preds_gen(ts, future_len)
-        en = list(en)
-        t = [e[0] for e in en]
-        t = torch.cat(t, dim=1)
-        y = [e[1] for e in en]
-        y = torch.cat(y, dim=1)
-        p = [e[2] for e in en]
-        p = torch.cat(p, dim=1)
-        pl = [e[3] for e in en]
-        return TimeSeries(t, y), TimeSeries(t, p), pl

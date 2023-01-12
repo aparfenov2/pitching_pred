@@ -19,6 +19,7 @@ while [[ "$#" -gt 0 ]]; do
         --train) TRAIN=1;;
         --ckpt) CKPT="$2"; shift ;;
         --config) CONFIG="$2"; shift ;;
+        --clearml-suffix) CLEARML_SUFFIX="$2"; shift ;;
         --eval) EVAL=1;;
         --daemon) DOCKER_TI="-d";;
         --docker) RUN_IN_DOCKER=1;;
@@ -194,15 +195,18 @@ find $1 -name "*.ckpt" -print0 |
     head -1
 }
 
+export CLEARML_CONFIG_FILE=$PWD/clearml.conf
+ls -l ${CLEARML_CONFIG_FILE}
+
 [ -n "${TRAIN}" ] && {
     # rm -rf lightning_logs/* || true
     [ -n "$TENSORBOARD" ] && {
         tensorboard --logdir=lightning_logs &
         tensorboard_pid=$!
     }
-    python train_lit.py fit -c ${CONFIG} 2>&1 | tee train.log
+    python train_lit.py fit -c ${CONFIG} --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} 2>&1 | tee train.log
     CKPT=$(find_last_ckpt lightning_logs)
-    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT 2>&1 | tee test.log
+    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} 2>&1 | tee test.log
 
     [ -n "${tensorboard_pid}" ] && {
         kill ${tensorboard_pid} || true
@@ -214,6 +218,6 @@ find $1 -name "*.ckpt" -print0 |
     [ -z "$CKPT" ] && {
         CKPT=$(find_last_ckpt lightning_logs)
     }
-    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT 2>&1 | tee test.log
+    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} 2>&1 | tee test.log
     exit 0
 }

@@ -33,6 +33,7 @@ class MyDataModule(LightningDataModule):
         L=1000,
         freq=50/4,
         base_freq=50,
+        test_only=False
     ):
         super().__init__()
 
@@ -43,8 +44,9 @@ class MyDataModule(LightningDataModule):
         self.cols = cols
         self.test_L = test_L
         self.L = L
-        self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train:"+fn_train, multiply=train_multiply)
-        self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="val:"+fn_train, multiply=1)
+        if not test_only:
+            self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train:"+fn_train, multiply=train_multiply)
+            self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="val:"+fn_train, multiply=1)
         if isinstance(fn_test, str):
             fn_test = [fn_test]
         self.test_set = [self.read_data_and_make_dataset(fn, cols, L=test_L, set_name="test:"+fn, multiply=test_multiply) for fn in fn_test]
@@ -75,6 +77,7 @@ class MyDataModule(LightningDataModule):
                 t     += _data["msec"]/1000
             _data = _data[cols].values
             t     = t.values
+            t -= t[0]
             # print(f"{set_name}: slice with gaps removed len={len(_data)}")
             _data = _data[::divider]
             t     = t[::divider]

@@ -6,6 +6,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from models.base import TimeSeries
 
 def make_validation_plots(axes, model, y, freq: float, current_epoch:int = None, col_names=None):
 
@@ -49,16 +50,24 @@ def draw_to_image(fig):
     img = img.reshape(int(height), int(width), 3)
     return img
 
-def draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id=None, cols=None):
-    # expected: numpy arrays [[bs,1,feat] ...]
+def draw_preds_plot(ax, gts: TimeSeries, preds: TimeSeries, preds_last: TimeSeries, future_len_s: float, feature_id=None, cols=None):
 
-    xgts = np.arange(0, len(gts))
-    xpreds = np.arange(0, len(preds))
-    xpa = np.arange(0, len(preds_last)) + len(gts) - future_len
+    # expected: TimeSeries of Tensors dim 3 [[bs,1,feat] ...]
+    assert gts.y.dim() == 3, str(gts.y.shape)
+    assert gts.t.dim() == 3, str(gts.t.shape)
+    assert preds.y.dim() == 3, str(preds.y.shape)
+    assert preds.t.dim() == 3, str(preds.t.shape)
+    assert preds_last.y.dim() == 3, str(preds_last.y.shape)
+    assert preds_last.t.dim() == 3, str(preds_last.t.shape)
 
-    ygts = np.concatenate(gts, axis=0)
-    ypreds = np.concatenate(preds, axis=0)
-    preds_last = np.concatenate(preds_last, axis=0)
+    # remove batch dim
+    xgts = gts.t.reshape(-1, gts.t.shape[-1])
+    xpreds = preds.t.reshape(-1, preds.t.shape[-1])
+
+    ygts = gts.y.reshape(-1, gts.y.shape[-1])
+    ypreds = preds.y.reshape(-1, preds.y.shape[-1])
+
+    assert xgts.dim() == 2, str(xgts.dim())
 
     def make_label(l,i):
         return f"{l}_{cols[i]}"
@@ -70,25 +79,49 @@ def draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id=None, col
     for i in range(len(cols)) if feature_id is None else [feature_id]:
         ax.plot(xgts, ygts[:,i], color=make_color(0,i), label = make_label('y',i))
         ax.plot(xpreds, ypreds[:,i] , color=make_color(1,i), label = make_label('pred',i))
-        ax.plot(xpa, preds_last[:,i], color=make_color(2,i), label = make_label('pred_tmp',i))
-    ax.axvline(len(gts) - future_len, color='b', ls='dashed')
+        for bi in range(preds_last.y.shape[0]):
+            ax.plot(preds_last.t[bi], preds_last.y[bi,:,i], color=make_color(2,i), label = make_label('pred_tmp',i))
+
+    ax.axvline(torch.max(xgts) - future_len_s, color='b', ls='dashed')
+
     if feature_id is not None:
         ax.set_title(f"Переменная {cols[feature_id]}")
     ax.legend(loc='upper right')
 
-def make_preds_plot(fig, model, y, window_len, future_len, feature_id: int=None, cols: typing.List[str]=None):
+def make_preds_plot(
+    fig, model,
+    ts: TimeSeries,
+    future_len_s: float,
+    freq: float,
+    window_len_s: float=20,
+    feature_id: int=None, cols: typing.List[str]=None
+    ):
     # expected: tensors
+    y, t = ts.y, ts.t
     assert y.dim() == 2, str(y.dim())
+    assert t.dim() == 2, str(t.dim())
+
+    window_len = int(window_len_s * freq)
+    future_len = int(future_len_s * freq)
 
     ax = fig.gca()
     preds = []
     gts = []
+    ts = []
     y = y[:window_len]
     y = y[None, ...]
+    t = t[:window_len]
+    t = t[None, ...]
 
-    en = model.make_preds_gen(y, future_len)
-    for gt, pred, preds_last in tqdm(en, total=y.shape[1], desc="cummulative preds plot"):
-        gts += [gt]
-        preds += [pred]
+    en = model.make_preds_gen(TimeSeries(t, y), future_len)
+    for e in tqdm(en, total=y.shape[1], desc="cummulative preds plot"):
+        ts += [e[0]]
+        gts += [e[1]]
+        preds += [e[2]]
+        preds_last = e[3]
 
-    draw_preds_plot(ax, gts, preds, preds_last, future_len, feature_id, cols)
+    ts = torch.cat(ts, dim=1)
+    gts = torch.cat(gts, dim=1)
+    preds = torch.cat(preds, dim=1)
+
+    draw_preds_plot(ax, TimeSeries(ts, gts), TimeSeries(ts, preds), preds_last, future_len_s, feature_id, cols)

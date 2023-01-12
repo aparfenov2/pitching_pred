@@ -1,0 +1,61 @@
+optimizer:
+  class_path: torch.optim.RMSprop
+  init_args:
+    lr: 0.01
+
+lr_scheduler:
+  class_path: pytorch_lightning.cli.ReduceLROnPlateau
+  init_args:
+    monitor: train_loss
+
+  # class_path: torch.optim.lr_scheduler.StepLR
+  # init_args:
+  #   step_size: 20
+  #   gamma: 0.8
+  #   verbose: true
+
+trainer:
+  max_epochs: 50
+  log_every_n_steps: 1
+
+  callbacks:
+    - class_path: pytorch_lightning.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+
+    - class_path: pytorch_lightning.callbacks.EarlyStopping
+      init_args:
+        monitor: val_pred_loss
+        min_delta: 0.0001
+        patience: 15
+        verbose: true
+        mode: min
+
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val_pred_loss
+        save_last: true
+        verbose: false
+        filename: "{epoch:03d}-{val_pred_loss:.4f}"
+
+model:
+  model_class_path: models.mean_model.MeanModel
+  model_init_args:
+    history_len_s: 10
+
+  criterion: torch.nn.L1Loss
+  future_len_s: 3
+  train_future_len_s: 3
+
+data:
+  batch_size: 32
+  base_freq: 50
+  freq: 4
+  # cols: [KK, KURS_SIN, KURS_COS]
+  cols: [KK]
+  fn_train: data/NPN_1155_part1_train_sin_cos.dat
+  fn_test:  ["tests/data/sin_train.dat"]
+  L: 140 # > 120 + 12 = 132 (history_len_s + future_len_s)*freq
+  test_L: 1000 # ~4 min
+  train_multiply: 1 #100
+  test_only: true
