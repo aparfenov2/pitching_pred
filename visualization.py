@@ -125,3 +125,48 @@ def make_preds_plot(
     preds = torch.cat(preds, dim=1)
 
     draw_preds_plot(ax, TimeSeries(ts, gts), TimeSeries(ts, preds), preds_last, future_len_s, feature_id, cols)
+
+def live_preds_plot(
+    fig, ax,
+    model,
+    dl,
+    future_len_s: float,
+    freq: float,
+    window_len_s: float=20,
+    feature_id: int=None, cols: typing.List[str]=None
+    ):
+
+    window_len = int(window_len_s * freq)
+    future_len = int(future_len_s * freq)
+
+    for y,t in dl:
+
+        # expected: tensors
+        assert y.dim() == 3, str(y.dim())
+        assert t.dim() == 3, str(t.dim())
+
+        preds = []
+        gts = []
+        ts = []
+
+        en = model.make_preds_gen(TimeSeries(t, y), future_len)
+
+        for step, e in enumerate(en):
+            ts += [e[0]]
+            gts += [e[1]]
+            preds += [e[2]]
+            preds_last = e[3]
+            if len(ts) > window_len:
+                ts.pop(0)
+                gts.pop(0)
+                preds.pop(0)
+
+            if step % 10 == 0:
+                ax.clear()
+                tts = torch.cat(ts, dim=1)
+                tgts = torch.cat(gts, dim=1)
+                tpreds = torch.cat(preds, dim=1)
+
+                draw_preds_plot(ax, TimeSeries(tts, tgts), TimeSeries(tts, tpreds), preds_last, future_len_s, feature_id, cols)
+                fig.canvas.draw()
+                fig.canvas.flush_events()
