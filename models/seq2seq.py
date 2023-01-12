@@ -102,11 +102,15 @@ class Seq2Seq(ModelBase):
         assert encoder.n_layers == decoder.n_layers, \
             "Encoder and decoder must have equal number of layers!"
 
-    def forward(self, y, future, teacher_forcing_ratio = 0.5):
+    def forward(self, y, future, teacher_forcing_ratio = 0):
+        # emulate behaviour of previous models
         assert future > 0
-        src = y[:,-self.history_len:-future]
-        trg = y[:,-future:]
-        return self.forward1(src=src, trg=trg, teacher_forcing_ratio=teacher_forcing_ratio)
+        assert teacher_forcing_ratio == 0
+        src = y
+        trg = torch.zeros((y.shape[0], future, y.shape[2]), dtype=y.dtype)
+        trg[:, 0] = y[:,-1]
+        pred = self.forward1(src=src, trg=trg, teacher_forcing_ratio=teacher_forcing_ratio)
+        return torch.cat([src, pred], dim=1)
 
     def forward1(self, src, trg, teacher_forcing_ratio = 0.5):
 

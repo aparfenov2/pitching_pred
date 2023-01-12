@@ -18,6 +18,7 @@ def make_validation_plots(axes, model, y, freq: float, current_epoch:int = None,
     window_s = 20
 
     heat = y[:int(heat_s * freq)]
+    assert len(heat) < len(y), f"{len(heat)} < {len(y)}"
 
     _heat = heat[None,...] # add batch dimension
     # _heat = torch.stack((heat, heat)) # min batch size is 2. Why ? Who knows ...
