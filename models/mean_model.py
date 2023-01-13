@@ -3,6 +3,9 @@ import torch.nn as nn
 from .base import TimeSeries, ModelBase
 
 class MeanModel(ModelBase):
+    """
+    Evaluation only reference model
+    """
     def __init__(self,
         history_len=None,
         history_len_s=None,

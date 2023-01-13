@@ -195,8 +195,32 @@ find $1 -name "*.ckpt" -print0 |
     head -1
 }
 
+function find_last_log_dir {
+find $1 -name "*.yaml" -print0 |
+    xargs -r -0 ls -1 -t |
+    head -1
+}
+
+set +e
+LOG_DIR=$(find_last_log_dir lightning_logs)
+set -e
+[ -n "${LOG_DIR}" ] && {
+    LOG_DIR_NUM=$(dirname ${LOG_DIR} | tr -d -c 0-9)
+    LOG_DIR_NUM=$((${LOG_DIR_NUM} + 1))
+}
+[ -z "${LOG_DIR}" ] && {
+    LOG_DIR_NUM=0
+}
+LOG_DIR=lightning_logs/config_${LOG_DIR_NUM}
+mkdir -p ${LOG_DIR} || true
+cp ${CONFIG} ${LOG_DIR}
+
 export CLEARML_CONFIG_FILE=$PWD/clearml.conf
-ls -l ${CLEARML_CONFIG_FILE}
+[ -z "${CLEARML_SUFFIX}" ] && {
+    CLEARML_SUFFIX=_${LOG_DIR_NUM}
+}
+echo LOG_DIR ${LOG_DIR}
+echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
 
 [ -n "${TRAIN}" ] && {
     # rm -rf lightning_logs/* || true
@@ -204,20 +228,27 @@ ls -l ${CLEARML_CONFIG_FILE}
         tensorboard --logdir=lightning_logs &
         tensorboard_pid=$!
     }
-    python train_lit.py fit -c ${CONFIG} --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} 2>&1 | tee train.log
-    CKPT=$(find_last_ckpt lightning_logs)
-    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} 2>&1 | tee test.log
+    python train_lit.py fit -c ${CONFIG} \
+        --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
+        2>&1 | tee train.log
 
     [ -n "${tensorboard_pid}" ] && {
         kill ${tensorboard_pid} || true
     }
-    exit 0
+    EVAL=1
 }
 
 [ -n "${EVAL}" ] && {
     [ -z "$CKPT" ] && {
+        set +e
         CKPT=$(find_last_ckpt lightning_logs)
+        set -e
     }
-    python train_lit.py "test" -c ${CONFIG} --ckpt_path $CKPT --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} 2>&1 | tee test.log
+    [ -n "$CKPT" ] && {
+        _CKPT="--ckpt_path $CKPT"
+    }
+    python train_lit.py "test" -c ${CONFIG} ${_CKPT} \
+        --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
+        2>&1 | tee test.log
     exit 0
 }

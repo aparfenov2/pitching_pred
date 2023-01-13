@@ -133,10 +133,10 @@ class Seq2Seq(ModelBase):
         #last hidden state of the encoder is used as the initial hidden state of the decoder
         hidden, cell = self.encoder(src)
 
-        #first input to the decoder is the <sos> tokens
-        input = trg[0,:]
+        #first input to the decoder is the last src val
+        input = src[-1,:]
 
-        for t in range(1, trg_len):
+        for t in range(trg_len):
 
             #insert input token embedding, previous hidden and previous cell states
             #receive output tensor (predictions) and new hidden and cell states
@@ -182,7 +182,7 @@ class Seq2Seq(ModelBase):
 
             src = y[:, i: i + self.history_len]
             trg = y[:, i + self.history_len: i + self.history_len + future_len]
-            output = self.forward1(src, trg)
+            output = self.forward1(src, trg, teacher_forcing_ratio=0)
 
             y_fut = y[:, i + self.history_len + future_len].unsqueeze(1)
             t_fut = t[:, i + self.history_len + future_len].unsqueeze(1)

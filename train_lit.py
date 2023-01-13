@@ -95,6 +95,11 @@ class LitPitchingPred(LightningModule):
             for i, col in enumerate(col_names):
                 for k,v in metrics.items():
                     self.log(f"{ds_name}: {col}: {k}", v[i].item(), on_step=False, on_epoch=True, logger=True)
+            # one line
+            metrics_order = ["rel_mae.max",	"rel_mae.mean",	"mae.max", "mae.mean", "mse.max", "mse.mean"]
+            print(f"one liner for ds={ds_name}")
+            print("\t".join(metrics_order))
+            print("\t".join([str(metrics[k].item()) for k in metrics_order]))
 
             _json = {
                 col : {k : v[i].item() for k,v in metrics.items()}

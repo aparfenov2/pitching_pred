@@ -140,15 +140,15 @@ def live_preds_plot(
     window_len = int(window_len_s * freq)
     future_len = int(future_len_s * freq)
 
+    preds = []
+    gts = []
+    ts = []
+
     for y,t in dl:
 
         # expected: tensors
         assert y.dim() == 3, str(y.dim())
         assert t.dim() == 3, str(t.dim())
-
-        preds = []
-        gts = []
-        ts = []
 
         en = model.make_preds_gen(TimeSeries(t, y), future_len)
 
@@ -157,9 +157,12 @@ def live_preds_plot(
             gts += [e[1]]
             preds += [e[2]]
             preds_last = e[3]
-            if len(ts) > window_len:
+
+            while len(ts) > window_len:
                 ts.pop(0)
+            while len(gts) > window_len:
                 gts.pop(0)
+            while len(preds) > window_len:
                 preds.pop(0)
 
             if step % 10 == 0:
