@@ -1,10 +1,11 @@
+import torch
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.data import Subset
 from pytorch_lightning import LightningDataModule
-import unittest
+from utils import resolve_classpath
 
 class MyDataset(Dataset):
     def __init__(self, data, t, name):
@@ -33,7 +34,9 @@ class MyDataModule(LightningDataModule):
         L=1000,
         freq=50/4,
         base_freq=50,
-        test_only=False
+        test_only=False,
+        train_augs=[],
+        test_augs=[]
     ):
         super().__init__()
 
@@ -44,19 +47,48 @@ class MyDataModule(LightningDataModule):
         self.cols = cols
         self.test_L = test_L
         self.L = L
+        self.train_augs = self.make_augs(train_augs)
+        self.test_augs = self.make_augs(test_augs)
         if not test_only:
-            self.train_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="train:"+fn_train, multiply=train_multiply)
-            self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L, set_name="val:"+fn_train, multiply=1)
+            self.train_set = self.read_data_and_make_dataset(
+                fn_train, cols, L=L,
+                set_name="train:"+fn_train,
+                multiply=train_multiply,
+                transforms=self.train_augs
+                )
+            self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L,
+                set_name="val:"+fn_train,
+                multiply=1,
+                transforms=self.test_augs
+                )
         if isinstance(fn_test, str):
             fn_test = [fn_test]
-        self.test_set = [self.read_data_and_make_dataset(fn, cols, L=test_L, set_name="test:"+fn, multiply=test_multiply) for fn in fn_test]
+        self.test_set = [self.read_data_and_make_dataset(
+                fn, cols, L=test_L,
+                set_name="test:"+fn,
+                multiply=test_multiply,
+                transforms=self.test_augs
+            ) for fn in fn_test]
 
     @staticmethod
     def add_speed_to_data(_data):
         for col in _data.columns:
             _data[f"{col}_v"] = _data[col].shift(20, fill_value=0) - _data[col]
 
-    def read_data_and_make_dataset(self, fn, cols, L, set_name, multiply):
+    def make_augs(augs):
+        ret = []
+        for aug in augs:
+            if isinstance(aug, dict):
+                aug_classpath = list(aug.keys())[0]
+                aug_init_args = aug[aug_classpath]
+                aug = resolve_classpath(aug_classpath)(**aug_init_args)
+            else:
+                assert isinstance(aug, list)
+                aug = resolve_classpath(aug)()
+            ret += [aug]
+        return torch.nn.Sequential(ret)
+
+    def read_data_and_make_dataset(self, fn, cols, L, set_name, multiply, transforms):
 
         data = pd.read_csv(fn, sep=" ")
         gaps = self._find_gaps(data)
@@ -94,6 +126,11 @@ class MyDataModule(LightningDataModule):
             ts    += [t]
         data = np.concatenate(datas, axis=0)
         t    = np.concatenate(ts,    axis=0)
+
+        print("apply transforms")
+        data = transforms(data)
+        print("transforms applied")
+
         assert len(t) == len(data), str(len(t)) + ' ' + str(len(data))
         print(f"{set_name}: data.shape {data.shape}")
         return MyDataset(data, t, set_name)
@@ -124,23 +161,3 @@ class MyDataModule(LightningDataModule):
 
     def predict_dataloader(self):
         return DataLoader(self.test_set, batch_size=1, num_workers=1)
-
-
-class MyDataModuleUT(unittest.TestCase):
-
-    @unittest.skip("disabled")
-    def test_speed(self):
-        m = MyDataModule()
-        dl = m.train_dataloader()
-        for x, y in dl:
-            self.assertTrue('KK' in m.cols)
-            self.assertTrue('KK_v' in m.cols)
-
-    def test_test_shape(self):
-        m = MyDataModule()
-        dl = m.test_dataloader()
-        print("test_dl.length", len(dl))
-        self.assertGreater(len(dl), 0)
-        for x, y in dl:
-            self.assertEqual(y.shape, (m.test_batch_size, m.test_L, len(m.cols)))
-            break

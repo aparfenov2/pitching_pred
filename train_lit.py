@@ -4,7 +4,6 @@ import cv2
 import os
 import json
 from typing import Any
-from importlib import import_module
 
 from pytorch_lightning.cli import LightningCLI
 from pytorch_lightning import cli_lightning_logo, LightningModule
@@ -13,14 +12,7 @@ from dataset import MyDataModule
 from visualization import make_validation_plots, draw_to_image, make_figure, make_preds_plot, draw_preds_plot
 from metrics import get_all_metrics, metrics_to_pandas, RelativeMAELoss, make_preds
 from models.base import TimeSeries
-
-def resolve_classpath(p):
-    if '.' not in p:
-        return import_module(p)
-
-    parts = p.rsplit('.')
-    mod = import_module('.'.join(parts[:-1]))
-    return getattr(mod, parts[-1])
+from utils import resolve_classpath
 
 class LitPitchingPred(LightningModule):
     def __init__(self,
