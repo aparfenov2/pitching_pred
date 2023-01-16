@@ -21,7 +21,8 @@ class LitPitchingPred(LightningModule):
         metrics_each = 10,
         freq = 50,
         future_len_s=3,
-        window_len_s=20,
+        train_plots_window_s=20,
+        test_plots_window_s=20,
         cols = ['KK'],
         model_class_path = "MyModel",
         model_init_args = {}
@@ -37,7 +38,8 @@ class LitPitchingPred(LightningModule):
         self.metrics_each = metrics_each
         self.freq = freq
         self.future_len_s = future_len_s
-        self.window_len_s = window_len_s
+        self.train_plots_window_s = train_plots_window_s
+        self.test_plots_window_s = test_plots_window_s
         self.cols = cols
         self.criterion = resolve_classpath(criterion)()
 
@@ -105,13 +107,12 @@ class LitPitchingPred(LightningModule):
             df.to_csv(fn, index=False, sep=' ')
             print("metrics preds saved to " + fn)
 
-
             y = self.sample_random_y(test_dl)
             fig = make_figure()
             make_preds_plot(
                 fig, self.model, ts=y,
                 future_len_s=self.future_len_s,
-                window_len_s=self.window_len_s,
+                window_len_s=self.test_plots_window_s,
                 freq=freq,
                 cols=col_names
                 )
@@ -159,24 +160,24 @@ class LitPitchingPred(LightningModule):
                 img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
                 self.logger.experiment.add_image(f"test_img_{col_names[i]}", img)
 
-            # preds plot
-            fig = make_figure()
-            make_preds_plot(
-                fig, self.model, ts=y,
-                future_len_s=self.future_len_s,
-                window_len_s=self.window_len_s,
-                freq=freq,
-                cols=col_names
-                )
-            fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f}")
-            img = draw_to_image(fig)
+            # # preds plot
+            # fig = make_figure()
+            # make_preds_plot(
+            #     fig, self.model, ts=y,
+            #     future_len_s=self.future_len_s,
+            #     window_len_s=self.train_plots_window_s,
+            #     freq=freq,
+            #     cols=col_names
+            #     )
+            # fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f}")
+            # img = draw_to_image(fig)
 
-            fn = self.logger.log_dir + '/val_preds/' + f"test_img_pred_{self.current_epoch}.jpg"
-            os.makedirs(os.path.dirname(fn), exist_ok=True)
-            cv2.imwrite(filename=fn, img=img[...,::-1])
+            # fn = self.logger.log_dir + '/val_preds/' + f"test_img_pred_{self.current_epoch}.jpg"
+            # os.makedirs(os.path.dirname(fn), exist_ok=True)
+            # cv2.imwrite(filename=fn, img=img[...,::-1])
 
-            img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
-            self.logger.experiment.add_image(f"test_img_pred", img)
+            # img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
+            # self.logger.experiment.add_image(f"test_img_pred", img)
 
 
 class MyLightningCLI(LightningCLI):

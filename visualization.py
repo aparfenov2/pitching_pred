@@ -107,25 +107,21 @@ def make_preds_plot(
 
     ax = fig.gca()
     preds = []
-    gts = []
-    ts = []
-    y = y[:window_len]
-    y = y[None, ...]
-    t = t[:window_len]
-    t = t[None, ...]
+    pts = []
+    ts_pred = TimeSeries(t.unsqueeze(0), y.unsqueeze(0))
 
-    en = model.make_preds_gen(TimeSeries(t, y), future_len)
-    for e in tqdm(en, total=y.shape[1], desc="cummulative preds plot"):
-        ts += [e[0]]
-        gts += [e[1]]
+    en = model.make_preds_gen(ts_pred, future_len)
+    for e in tqdm(en, total=ts_pred.y.shape[1], desc="cummulative preds plot"):
+        pts += [e[0]]
         preds += [e[2]]
         preds_last = e[3]
 
-    ts = torch.cat(ts, dim=1)
-    gts = torch.cat(gts, dim=1)
-    preds = torch.cat(preds, dim=1)
+    pts = torch.cat(pts[-window_len:], dim=1)
+    preds = torch.cat(preds[-window_len:], dim=1)
+    yw = y[-window_len:].unsqueeze(0)
+    tw = t[-window_len:].unsqueeze(0)
 
-    draw_preds_plot(ax, TimeSeries(ts, gts), TimeSeries(ts, preds), preds_last, future_len_s, feature_id, cols)
+    draw_preds_plot(ax, TimeSeries(tw, yw), TimeSeries(pts, preds), preds_last, future_len_s, feature_id, cols)
 
 def live_preds_plot(
     fig, ax,

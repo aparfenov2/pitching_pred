@@ -13,7 +13,7 @@ def do_snapshot():
     fig, ax = plt.subplots()
     make_preds_plot(
         fig, model, ts=y,
-        window_len_s=model.window_len_s,
+        window_len_s=model.test_plots_window_s,
         future_len_s=model.future_len_s,
         freq=model.freq,
         cols=dm.cols
@@ -26,7 +26,7 @@ def do_live():
     live_preds_plot(
         fig, ax,
         model, dl=dl,
-        window_len_s=model.window_len_s,
+        window_len_s=model.test_plots_window_s,
         future_len_s=model.future_len_s,
         freq=model.freq,
         cols=dm.cols
