@@ -85,7 +85,7 @@ class Decoder(nn.Module):
 class Seq2Seq(ModelBase):
     def __init__(self, encoder, decoder, device,
         history_len_s,
-        future_len_s,
+        train_future_len_s,
         freq
     ):
         super().__init__()
@@ -94,8 +94,7 @@ class Seq2Seq(ModelBase):
         self.decoder = decoder
         self.device = device
         self.history_len = int(history_len_s * freq)
-        self.future_len = int(future_len_s * freq)
-        assert self.history_len == 0 or self.history_len >= self.future_len
+        self.train_future_len = int(train_future_len_s * freq)
 
         assert encoder.hid_dim == decoder.hid_dim, \
             "Hidden dimensions of encoder and decoder must be equal!"
@@ -158,15 +157,15 @@ class Seq2Seq(ModelBase):
 
     def training_step(self, batch, lit, **kwargs):
         y, t = batch
-        src = y[:,-self.history_len:-self.future_len]
-        trg = y[:,-self.future_len:]
+        src = y[:,-self.history_len:-self.train_future_len]
+        trg = y[:,-self.train_future_len:]
         output = self.forward1(src, trg)
         return lit.criterion(output, trg)
 
     def validation_step(self, batch, lit, **kwargs):
         y, t = batch
-        src = y[:,-self.history_len:-self.future_len]
-        trg = y[:,-self.future_len:]
+        src = y[:,-self.history_len:-self.train_future_len]
+        trg = y[:,-self.train_future_len:]
         output = self.forward1(src, trg, teacher_forcing_ratio=0)
         return {
             'val_pred_loss': lit.criterion(output, trg)
@@ -196,6 +195,7 @@ class Seq2Seq(ModelBase):
 def make_model(
     freq,
     future_len_s,
+    train_future_len_s,
     history_len_s = 10,
     INPUT_DIM = 1,
     OUTPUT_DIM = 1,
@@ -210,7 +210,7 @@ def make_model(
     model =  Seq2Seq(
         enc, dec, device,
         history_len_s=history_len_s,
-        future_len_s=future_len_s,
+        train_future_len_s=train_future_len_s,
         freq=freq
         ).to(device)
 

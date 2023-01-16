@@ -45,7 +45,6 @@ model:
 
   criterion: torch.nn.L1Loss
   future_len_s: 3
-  train_future_len_s: 3
 
 data:
   batch_size: 32

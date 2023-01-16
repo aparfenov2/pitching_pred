@@ -9,7 +9,7 @@ class TransformsUT(unittest.TestCase):
         tr = InvertZero()
         data = torch.ones((8, 10, 1))
         data = tr(data)
-        print("test_invert", data)
+        # print("test_invert", data)
         self.assertTrue(torch.any(data < 0))
 
     def test_invert2(self):

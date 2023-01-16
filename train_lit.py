@@ -21,7 +21,6 @@ class LitPitchingPred(LightningModule):
         metrics_each = 10,
         freq = 50,
         future_len_s=3,
-        train_future_len_s = 3,
         window_len_s=20,
         cols = ['KK'],
         model_class_path = "MyModel",
@@ -39,7 +38,6 @@ class LitPitchingPred(LightningModule):
         self.freq = freq
         self.future_len_s = future_len_s
         self.window_len_s = window_len_s
-        self.train_future_len_s = train_future_len_s
         self.cols = cols
         self.criterion = resolve_classpath(criterion)()
 
