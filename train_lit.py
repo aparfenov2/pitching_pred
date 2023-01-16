@@ -21,8 +21,7 @@ class LitPitchingPred(LightningModule):
         metrics_each = 10,
         freq = 50,
         future_len_s=3,
-        train_plots_window_s=20,
-        test_plots_window_s=20,
+        plots_window_s=20,
         cols = ['KK'],
         model_class_path = "MyModel",
         model_init_args = {}
@@ -38,8 +37,7 @@ class LitPitchingPred(LightningModule):
         self.metrics_each = metrics_each
         self.freq = freq
         self.future_len_s = future_len_s
-        self.train_plots_window_s = train_plots_window_s
-        self.test_plots_window_s = test_plots_window_s
+        self.plots_window_s = plots_window_s
         self.cols = cols
         self.criterion = resolve_classpath(criterion)()
 
@@ -112,7 +110,7 @@ class LitPitchingPred(LightningModule):
             make_preds_plot(
                 fig, self.model, ts=y,
                 future_len_s=self.future_len_s,
-                window_len_s=self.test_plots_window_s,
+                window_len_s=self.plots_window_s,
                 freq=freq,
                 cols=col_names
                 )
@@ -165,7 +163,7 @@ class LitPitchingPred(LightningModule):
             # make_preds_plot(
             #     fig, self.model, ts=y,
             #     future_len_s=self.future_len_s,
-            #     window_len_s=self.train_plots_window_s,
+            #     window_len_s=self.plots_window_s,
             #     freq=freq,
             #     cols=col_names
             #     )

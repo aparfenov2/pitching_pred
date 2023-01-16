@@ -247,6 +247,7 @@ echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
     [ -n "$CKPT" ] && {
         _CKPT="--ckpt_path $CKPT"
     }
+    ls -l $CKPT
     python train_lit.py "test" -c ${CONFIG} ${_CKPT} \
         --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
         2>&1 | tee test.log
