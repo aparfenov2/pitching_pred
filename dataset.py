@@ -75,6 +75,7 @@ class MyDataModule(LightningDataModule):
         for col in _data.columns:
             _data[f"{col}_v"] = _data[col].shift(20, fill_value=0) - _data[col]
 
+    @staticmethod
     def make_augs(augs):
         ret = []
         for aug in augs:
@@ -83,10 +84,10 @@ class MyDataModule(LightningDataModule):
                 aug_init_args = aug[aug_classpath]
                 aug = resolve_classpath(aug_classpath)(**aug_init_args)
             else:
-                assert isinstance(aug, list)
+                assert isinstance(aug, str)
                 aug = resolve_classpath(aug)()
             ret += [aug]
-        return torch.nn.Sequential(ret)
+        return torch.nn.Sequential(*ret)
 
     def read_data_and_make_dataset(self, fn, cols, L, set_name, multiply, transforms):
 
@@ -110,13 +111,10 @@ class MyDataModule(LightningDataModule):
             _data = _data[cols].values
             t     = t.values
             t -= t[0]
-            # print(f"{set_name}: slice with gaps removed len={len(_data)}")
             _data = _data[::divider]
             t     = t[::divider]
-            # print(f"{set_name}: slice after divider {divider} len={len(_data)}")
             _data = _data[:(len(_data)//L)*L]
             t     =     t[:(len(_data)//L)*L]
-            # print(f"{set_name}: slice after L {L} len={len(_data)}")
             if len(_data.shape) == 1:
                 _data = _data.reshape(-1, L, 1).astype('float32')
             else:
@@ -126,10 +124,13 @@ class MyDataModule(LightningDataModule):
             ts    += [t]
         data = np.concatenate(datas, axis=0)
         t    = np.concatenate(ts,    axis=0)
+        data = torch.tensor(data)
+        t    = torch.tensor(t)
 
-        print("apply transforms")
+        # np.savetxt("before.csv", data.flatten().numpy())
         data = transforms(data)
-        print("transforms applied")
+        # np.savetxt("after.csv", data.flatten().numpy())
+
 
         assert len(t) == len(data), str(len(t)) + ' ' + str(len(data))
         print(f"{set_name}: data.shape {data.shape}")

@@ -12,10 +12,14 @@ class MyDataModuleUT(unittest.TestCase):
             self.assertTrue('KK_v' in m.cols)
 
     def test_test_shape(self):
-        m = MyDataModule()
+        m = MyDataModule(
+            fn_train = "tests/data/sin_train.dat",
+            fn_test = "tests/data/sin_train.dat",
+            test_L = 100
+        )
         dl = m.test_dataloader()
         print("test_dl.length", len(dl))
         self.assertGreater(len(dl), 0)
-        for x, y in dl:
+        for y,t in dl[0]:
             self.assertEqual(y.shape, (m.test_batch_size, m.test_L, len(m.cols)))
             break
