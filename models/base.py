@@ -8,6 +8,22 @@ class TimeSeries:
 
 class ModelBase(nn.Module):
 
+    @property
+    def min_y_length_s(self):
+        raise NotImplementedError()
+
+    def forward(self, y, future):
+        # emulate behaviour of previous models
+        assert future > 0
+        src = y
+        trg = torch.zeros((y.shape[0], future, y.shape[2]), dtype=y.dtype)
+        trg[:, 0] = y[:,-1]
+        pred = self.forward1(src=src, trg=trg)
+        return torch.cat([src, pred], dim=1)
+
+    def make_preds_gen(self, ts : TimeSeries, future_len: int):
+        raise NotImplementedError()
+
     def make_preds(self, ts: TimeSeries, future_len: int):
         en = self.make_preds_gen(ts, future_len)
         en = list(en)

@@ -41,12 +41,6 @@ class LitPitchingPred(LightningModule):
         self.cols = cols
         self.criterion = resolve_classpath(criterion)()
 
-    def make_preds_gen(self, _input, future_len: int):
-        return self.model.make_preds_gen(_input, future_len)
-
-    def forward(self, *args: Any, **kwargs: Any) -> Any:
-        return self.model.forward(*args, **kwargs)
-
     def training_step(self, batch, batch_idx):
         loss = self.model.training_step(
             batch=batch,
@@ -132,50 +126,6 @@ class LitPitchingPred(LightningModule):
         t = t[batch_id]
         assert y.dim() == 2 # L,F
         return TimeSeries(t, y)
-
-    def training_epoch_end(self, training_step_outputs):
-        with torch.no_grad():
-            val_dl = self.trainer.val_dataloaders[0]
-            y: TimeSeries = self.sample_random_y(val_dl)
-
-            num_feats = len(self.cols) # self.model.output_sz # y.size(1)
-            freq=self.freq
-            col_names = self.cols
-
-            figs = [make_figure() for i in range(num_feats)]
-            axes = [fig.gca() for fig in figs]
-
-            make_validation_plots(axes=axes, model=self, y=y.y, freq=freq)
-
-            for i,fig in enumerate(figs):
-                fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f} переменная {col_names[i]}")
-                img = draw_to_image(fig)
-
-                fn = self.logger.log_dir + '/val_imgs/' + f"test_img_{col_names[i]}_{self.current_epoch}.jpg"
-                os.makedirs(os.path.dirname(fn), exist_ok=True)
-                cv2.imwrite(filename=fn, img=img[...,::-1])
-
-                img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
-                self.logger.experiment.add_image(f"test_img_{col_names[i]}", img)
-
-            # # preds plot
-            # fig = make_figure()
-            # make_preds_plot(
-            #     fig, self.model, ts=y,
-            #     future_len_s=self.future_len_s,
-            #     window_len_s=self.plots_window_s,
-            #     freq=freq,
-            #     cols=col_names
-            #     )
-            # fig.suptitle(f"Эпоха {self.current_epoch} частота {freq:3.2f}")
-            # img = draw_to_image(fig)
-
-            # fn = self.logger.log_dir + '/val_preds/' + f"test_img_pred_{self.current_epoch}.jpg"
-            # os.makedirs(os.path.dirname(fn), exist_ok=True)
-            # cv2.imwrite(filename=fn, img=img[...,::-1])
-
-            # img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
-            # self.logger.experiment.add_image(f"test_img_pred", img)
 
 
 class MyLightningCLI(LightningCLI):

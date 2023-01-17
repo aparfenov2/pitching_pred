@@ -12,7 +12,7 @@ def do_snapshot():
     y = LitPitchingPred.sample_random_y(dl)
     fig, ax = plt.subplots()
     make_preds_plot(
-        fig, model, ts=y,
+        fig, model.model, ts=y,
         window_len_s=model.plots_window_s,
         future_len_s=model.future_len_s,
         freq=model.freq,
@@ -25,7 +25,7 @@ def do_live():
     fig, ax = plt.subplots()
     live_preds_plot(
         fig, ax,
-        model, dl=dl,
+        model.model, dl=dl,
         window_len_s=model.plots_window_s,
         future_len_s=model.future_len_s,
         freq=model.freq,

@@ -17,7 +17,7 @@ def make_validation_plots(axes, model, y, freq: float, current_epoch:int = None,
     offset_s = 20
     window_s = 20
 
-    heat = y[:int(heat_s * freq)]
+    heat = y[:int(max(heat_s, model.model.min_y_length_s) * freq)]
     assert len(heat) < len(y), f"{len(heat)} < {len(y)}"
 
     _heat = heat[None,...] # add batch dimension
