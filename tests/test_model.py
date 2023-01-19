@@ -2,6 +2,7 @@ import torch
 import unittest
 from models.model import MyModel, RNNState
 from models.linear_model import LinearModel
+from models.seq2seq_emb import Scaler
 
 class MyModelUT(unittest.TestCase):
 
@@ -33,3 +34,12 @@ class LinearModelUT(unittest.TestCase):
         y = torch.zeros((1,1000,1))
         preds = m.forward(y, future=10)
         self.assertEqual(preds.shape, (1, 10, 1))
+
+class Seq2SeqEmbUT(unittest.TestCase):
+    def testScaler(self):
+        s = Scaler(-2, 2, 100)
+        a = torch.tensor([-2.0, 2.0])
+        sa = s.scale(a)
+        sba = s.scale_back(sa)
+        self.assertEqual(a[0], sba[0], f"a {a} sba {sba}")
+        self.assertTrue(torch.all(a == sba), f"a {a} sba {sba}")

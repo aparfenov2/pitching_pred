@@ -7,12 +7,13 @@ import torch.nn.functional as F
 class Encoder(nn.Module):
     def __init__(self,
                  input_dim,
+                 emb_dim,
                  hid_dim,
                  n_layers,
                  kernel_size,
                  dropout,
-                 device
-                 ):
+                 device,
+                 max_length = 100):
         super().__init__()
 
         assert kernel_size % 2 == 1, "Kernel size must be odd!"
@@ -20,29 +21,52 @@ class Encoder(nn.Module):
         self.device = device
 
         self.scale = torch.sqrt(torch.FloatTensor([0.5])).to(device)
-        self.convs = nn.ModuleList([
-            nn.Conv1d(
-                in_channels = hid_dim,
-                out_channels = 2 * hid_dim,
-                kernel_size = kernel_size,
-                padding = (kernel_size - 1) // 2
-                )
-                for _ in range(n_layers)
-            ])
+
+        self.tok_embedding = nn.Embedding(input_dim, emb_dim)
+        self.pos_embedding = nn.Embedding(max_length, emb_dim)
+
+        self.emb2hid = nn.Linear(emb_dim, hid_dim)
+        self.hid2emb = nn.Linear(hid_dim, emb_dim)
+
+        self.convs = nn.ModuleList([nn.Conv1d(in_channels = hid_dim,
+                                              out_channels = 2 * hid_dim,
+                                              kernel_size = kernel_size,
+                                              padding = (kernel_size - 1) // 2)
+                                    for _ in range(n_layers)])
 
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, src):
 
-        # batch_size = src.shape[0]
-        # src_len = src.shape[1]
         #src = [batch size, src len]
 
+        batch_size = src.shape[0]
+        src_len = src.shape[1]
+
+        #create position tensor
+        pos = torch.arange(0, src_len).unsqueeze(0).repeat(batch_size, 1).to(self.device)
+
+        #pos = [0, 1, 2, 3, ..., src len - 1]
+
+        #pos = [batch size, src len]
+
+        #embed tokens and positions
+        tok_embedded = self.tok_embedding(src)
+        pos_embedded = self.pos_embedding(pos)
+
+        #tok_embedded = pos_embedded = [batch size, src len, emb dim]
+
+        #combine embeddings by elementwise summing
+        embedded = self.dropout(tok_embedded + pos_embedded)
+
+        #embedded = [batch size, src len, emb dim]
+
+        #pass embedded through linear layer to convert from emb dim to hid dim
+        conv_input = self.emb2hid(embedded)
+
         #conv_input = [batch size, src len, hid dim]
-        conv_input = src
 
         #permute for convolutional layer
-        _input = conv_input
         conv_input = conv_input.permute(0, 2, 1)
 
         #conv_input = [batch size, hid dim, src len]
@@ -72,28 +96,30 @@ class Encoder(nn.Module):
         #...end convolutional blocks
 
         #permute and convert back to emb dim
-        conved = conved.permute(0, 2, 1)
+        conved = self.hid2emb(conved.permute(0, 2, 1))
 
         #conved = [batch size, src len, emb dim]
 
         #elementwise sum output (conved) and input (embedded) to be used for attention
-        combined = (conved + _input) * self.scale
+        combined = (conved + embedded) * self.scale
 
         #combined = [batch size, src len, emb dim]
 
         return conved, combined
 
 
+
 class Decoder(nn.Module):
     def __init__(self,
                  output_dim,
+                 emb_dim,
                  hid_dim,
                  n_layers,
                  kernel_size,
                  dropout,
                  trg_pad_idx,
                  device,
-                 ):
+                 max_length = 100):
         super().__init__()
 
         self.kernel_size = kernel_size
@@ -101,6 +127,15 @@ class Decoder(nn.Module):
         self.device = device
 
         self.scale = torch.sqrt(torch.FloatTensor([0.5])).to(device)
+
+        self.tok_embedding = nn.Embedding(output_dim, emb_dim)
+        self.pos_embedding = nn.Embedding(max_length, emb_dim)
+
+        self.emb2hid = nn.Linear(emb_dim, hid_dim)
+        self.hid2emb = nn.Linear(hid_dim, emb_dim)
+
+        self.attn_hid2emb = nn.Linear(hid_dim, emb_dim)
+        self.attn_emb2hid = nn.Linear(emb_dim, hid_dim)
 
         self.fc_out = nn.Linear(emb_dim, output_dim)
 
@@ -228,7 +263,7 @@ class Decoder(nn.Module):
             #set conv_input to conved for next loop iteration
             conv_input = conved
 
-        conved = conved.permute(0, 2, 1)
+        conved = self.hid2emb(conved.permute(0, 2, 1))
 
         #conved = [batch size, trg len, emb dim]
 
@@ -237,6 +272,7 @@ class Decoder(nn.Module):
         #output = [batch size, trg len, output dim]
 
         return output, attention
+
 
 
 class Seq2Seq(nn.Module):

@@ -20,7 +20,7 @@ def do_snapshot():
         )
     plt.show()
 
-def do_live():
+def do_live(draw_step_size):
     plt.ion()
     fig, ax = plt.subplots()
     live_preds_plot(
@@ -29,7 +29,8 @@ def do_live():
         window_len_s=model.plots_window_s,
         future_len_s=model.future_len_s,
         freq=model.freq,
-        cols=dm.cols
+        cols=dm.cols,
+        draw_step_size=draw_step_size
         )
 
 class CLI(MyLightningCLI):
@@ -37,6 +38,7 @@ class CLI(MyLightningCLI):
         super().add_arguments_to_parser(parser=parser)
         parser.add_argument("--ckpt_path")
         parser.add_argument("--live", action='store_true')
+        parser.add_argument("--draw_step_size", type=int, default=10)
 
 cli = CLI(
     LitPitchingPred, MyDataModule,
@@ -54,4 +56,4 @@ with torch.no_grad():
     if not cli.config.live:
         do_snapshot()
     else:
-        do_live()
+        do_live(cli.config.draw_step_size)

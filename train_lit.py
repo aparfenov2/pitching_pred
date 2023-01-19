@@ -17,6 +17,7 @@ from utils import resolve_classpath
 class LitPitchingPred(LightningModule):
     def __init__(self,
         criterion = "MSELoss",
+        val_criterion = "torch.nn.L1Loss",
         # params shared with datamodule
         metrics_each = 10,
         freq = 50,
@@ -40,6 +41,7 @@ class LitPitchingPred(LightningModule):
         self.plots_window_s = plots_window_s
         self.cols = cols
         self.criterion = resolve_classpath(criterion)()
+        self.val_criterion = resolve_classpath(val_criterion)()
 
     def training_step(self, batch, batch_idx):
         loss = self.model.training_step(
@@ -108,12 +110,16 @@ class LitPitchingPred(LightningModule):
                 freq=freq,
                 cols=col_names
                 )
-            fig.suptitle(f"ds_name {ds_name}")
+            fig.suptitle(ds_name)
             img = draw_to_image(fig)
 
             fn = self.logger.log_dir + f"/test_img_pred_{ds_name}.jpg"
             os.makedirs(os.path.dirname(fn), exist_ok=True)
             cv2.imwrite(filename=fn, img=img[...,::-1])
+
+            img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
+            self.logger.experiment.add_image(ds_name", img)
+
 
     @staticmethod
     def sample_random_y(val_dl):
@@ -126,6 +132,30 @@ class LitPitchingPred(LightningModule):
         t = t[batch_id]
         assert y.dim() == 2 # L,F
         return TimeSeries(t, y)
+
+    def training_epoch_end(self, training_step_outputs):
+        with torch.no_grad():
+            val_dl = self.trainer.val_dataloaders[0]
+            y: TimeSeries = self.sample_random_y(val_dl)
+
+            # preds plot
+            fig = make_figure()
+            make_preds_plot(
+                fig, self.model, ts=y,
+                future_len_s=self.future_len_s,
+                window_len_s=self.plots_window_s,
+                freq=self.freq,
+                cols=self.cols
+                )
+            fig.suptitle(f"Эпоха {self.current_epoch} частота {self.freq:3.2f}")
+            img = draw_to_image(fig)
+
+            fn = self.logger.log_dir + '/val_preds/' + f"test_img_pred_{self.current_epoch}.jpg"
+            os.makedirs(os.path.dirname(fn), exist_ok=True)
+            cv2.imwrite(filename=fn, img=img[...,::-1])
+
+            img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
+            self.logger.experiment.add_image(f"test_img_pred", img)
 
 
 class MyLightningCLI(LightningCLI):

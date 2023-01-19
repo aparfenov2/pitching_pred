@@ -35,6 +35,10 @@ def get_mae(_input, target):
     mae = F.l1_loss(_input, target, reduction='none')
     return mae.mean(axis=1), mae.max(axis=1).values
 
+class MaxMAELoss(nn.Module):
+    def forward(self, _input, target):
+        mean, max = get_mae(_input, target)
+        return max.mean()
 
 def _relative_mae_metric(
     y: torch.Tensor,

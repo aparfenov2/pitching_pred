@@ -94,6 +94,7 @@ def make_preds_plot(
     ts: TimeSeries,
     future_len_s: float,
     freq: float,
+    ax=None,
     window_len_s: float=20,
     feature_id: int=None, cols: typing.List[str]=None
     ):
@@ -104,8 +105,8 @@ def make_preds_plot(
 
     window_len = int(window_len_s * freq)
     future_len = int(future_len_s * freq)
-
-    ax = fig.gca()
+    if ax is None:
+        ax = fig.gca()
     preds = []
     pts = []
     ts_pred = TimeSeries(t.unsqueeze(0), y.unsqueeze(0))
@@ -130,7 +131,8 @@ def live_preds_plot(
     future_len_s: float,
     freq: float,
     window_len_s: float=20,
-    feature_id: int=None, cols: typing.List[str]=None
+    feature_id: int=None, cols: typing.List[str]=None,
+    draw_step_size: int = 10
     ):
 
     window_len = int(window_len_s * freq)
@@ -161,7 +163,7 @@ def live_preds_plot(
             while len(preds) > window_len:
                 preds.pop(0)
 
-            if step % 10 == 0:
+            if step % draw_step_size == 0:
                 ax.clear()
                 tts = torch.cat(ts, dim=1)
                 tgts = torch.cat(gts, dim=1)
