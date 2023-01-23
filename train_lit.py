@@ -38,6 +38,7 @@ class LitPitchingPred(LightningModule):
         self.metrics_each = metrics_each
         self.freq = freq
         self.future_len_s = future_len_s
+        self.future_len = int(future_len_s * freq)
         self.plots_window_s = plots_window_s
         self.cols = cols
         self.criterion = resolve_classpath(criterion)()
@@ -118,7 +119,7 @@ class LitPitchingPred(LightningModule):
             cv2.imwrite(filename=fn, img=img[...,::-1])
 
             img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
-            self.logger.experiment.add_image(ds_name", img)
+            self.logger.experiment.add_image(ds_name, img)
 
 
     @staticmethod

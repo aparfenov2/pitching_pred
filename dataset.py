@@ -19,6 +19,19 @@ class MyDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx], self.t[idx]
 
+class MyDataset2(Dataset):
+    def __init__(self, data, var_names, name):
+        self.data = data
+        self.var_names = var_names
+        self.name = name
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return {
+            name : self.data[idx][name] for name in self.var_names
+        }
 
 class MyDataModule(LightningDataModule):
 
@@ -119,7 +132,7 @@ class MyDataModule(LightningDataModule):
                 _data = _data.reshape(-1, L, 1).astype('float32')
             else:
                 _data = _data.reshape(-1, L, _data.shape[-1]).astype('float32')
-            t     = t.reshape(-1, L, 1)
+            t     = t.reshape(-1, L, 1).astype('float32')
             datas += [_data]
             ts    += [t]
         data = np.concatenate(datas, axis=0)
