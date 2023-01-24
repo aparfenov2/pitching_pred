@@ -79,22 +79,26 @@ class LitPitchingPred(LightningModule):
                 future_len_s=self.future_len_s
                 )
 
-            for i, col in enumerate(col_names):
-                for k,v in metrics.items():
-                    self.log(f"{ds_name}: {col}: {k}", v[i].item(), on_step=False, on_epoch=True, logger=True)
             # one line
             metrics_order = ["rel_mae.max",	"rel_mae.mean",	"mae.max", "mae.mean", "mse.max", "mse.mean"]
             print(f"one liner for ds={ds_name}")
             print("\t".join(metrics_order))
-            print("\t".join([str(metrics[k].item()) for k in metrics_order]))
+            print("\t".join([str(metrics[k]) for k in metrics_order]))
 
             _json = {
-                col : {k : v[i].item() for k,v in metrics.items()}
+                col : {k : v[i] for k,v in metrics.items()}
                     for i, col in enumerate(col_names)
             }
+
+            class NumpyEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    if isinstance(obj, torch.Tensor):
+                        return obj.tolist()
+                    return json.JSONEncoder.default(self, obj)
+
             fn = self.logger.log_dir + f'/preds_{ds_name}.json'
             with open(fn, 'w') as f:
-                json.dump(_json, f, indent=4)
+                json.dump(_json, f, indent=4, cls=NumpyEncoder)
 
             # save preds to csv
             df = metrics_to_pandas(gts, preds, ts, col_names)

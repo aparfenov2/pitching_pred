@@ -23,7 +23,7 @@ def make_preds(y,t, model, future_len, batch_n=None, batch_total=None):
     # ts = t[:, future_len-1:].split(1, dim=1)
     # ts = ts[:len(preds)]
     assert len(gts) == len(preds) == len(ts), f"{len(gts)} == {len(preds)} == {len(ts)}"
-    assert gts[0].dim() == 3 and gts[0].shape == preds[0].shape
+    assert gts[0].dim() == 3 # and gts[0].shape == preds[0].shape
     assert ts[0].dim() == 3 and ts[0].shape[:-1] == gts[0].shape[:-1] and ts[0].size(2) == 1, f"ts[0].shape {ts[0].shape} gts[0].shape {gts[0].shape}"
     return gts, preds, ts
 
@@ -109,23 +109,26 @@ def get_all_metrics(test_dl, model, sample_frq, future_len_s, skip_len_s=10):
         n_feats = y.shape[-1]
         _gts, _preds, _ts = make_preds(y,t, model, future_len, batch_n=i, batch_total=len(test_dl))
         gts += [torch.stack(_gts[skip_len:], axis=1).reshape(-1, n_feats)]
-        preds += [torch.stack(_preds[skip_len:], axis=1).reshape(-1, n_feats)]
-        ts += [torch.stack(_ts[skip_len:], axis=1).reshape(-1, n_feats)]
+        preds += [torch.stack(_preds[skip_len:], axis=1).reshape(-1, _preds[0].shape[-1])]
+        ts += [torch.stack(_ts[skip_len:], axis=1).reshape(-1, 1)]
 
     tgts = torch.cat(gts, axis=0).unsqueeze(0) # make it (1, N*L, F)
     tpreds = torch.cat(preds, axis=0).unsqueeze(0)
     assert tgts.dim() == tpreds.dim() == 3, f"tgts.shape {tgts.shape} tpreds.shape {tpreds.shape}"
+    if tpreds.shape[-1] < tgts.shape[-1]:
+        tpreds = torch.cat([tpreds, tgts[:,:,tpreds.shape[-1]:]], dim=-1)
+    assert tgts.shape == tpreds.shape, f"tgts.shape {tgts.shape} tpreds.shape {tpreds.shape}"
 
     rel_mae = _relative_mae_metric(y=tgts, y_hat=tpreds, sample_frq=sample_frq)
     mae = get_mae(tgts, tpreds)
     mse = get_mse(tgts, tpreds)
     metrics = {
-        "rel_mae.mean": rel_mae.mean(dim=(0,1,3)),
-        "rel_mae.max": rel_mae.max(dim=3).values.max(dim=1).values.max(dim=0).values,
-        "mae.mean" : mae[0],
-        "mae.max" : mae[1],
-        "mse.mean" : mse[0],
-        "mse.max" : mse[1],
+        "rel_mae.mean": rel_mae.mean(dim=(0,1,3)).squeeze(),
+        "rel_mae.max": rel_mae.max(dim=3).values.max(dim=1).values.max(dim=0).values.squeeze(),
+        "mae.mean" : mae[0].squeeze(),
+        "mae.max" : mae[1].squeeze(),
+        "mse.mean" : mse[0].squeeze(),
+        "mse.max" : mse[1].squeeze(),
     }
 
     return (
@@ -144,5 +147,6 @@ def metrics_to_pandas(gts, preds, ts, cols):
     df["sec"] = tts[:,0]
     for i, col in enumerate(cols):
         df[col] = tgts[:,i]
-        df[col + '_pred'] = tpreds[:,i]
+        if i < tpreds.shape[-1]:
+            df[col + '_pred'] = tpreds[:,i]
     return df
