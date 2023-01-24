@@ -9,6 +9,7 @@ DOCKER_IMAGE="ml-py38-gpu-114"
 DOCKER_FILE="Dockerfile"
 POSITIONAL=("$@")
 OTHER_ARGS=()
+CONFIGS=()
 DOCKER_TI="-i"
 [ "${SSH_HOST}" == "local" ] && {
     DOCKER_TI="-ti"
@@ -18,7 +19,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --train) TRAIN=1;;
         --ckpt) CKPT="$2"; shift ;;
-        --config) CONFIG="$2"; shift ;;
+        --config) CONFIGS+=($2); shift ;;
         --clearml-suffix) CLEARML_SUFFIX="$2"; shift ;;
         --eval) EVAL=1;;
         --daemon) DOCKER_TI="-d";;
@@ -213,7 +214,12 @@ set -e
 }
 LOG_DIR=lightning_logs/config_${LOG_DIR_NUM}
 mkdir -p ${LOG_DIR} || true
-cp ${CONFIG} ${LOG_DIR}
+
+_CONFIG=()
+for CONFIG in ${CONFIGS[@]}; do
+    cp ${CONFIG} ${LOG_DIR}
+    _CONFIG+=(-c ${CONFIG})
+done
 
 export CLEARML_CONFIG_FILE=$PWD/clearml.conf
 [ -z "${CLEARML_SUFFIX}" ] && {
@@ -228,7 +234,7 @@ echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
         tensorboard --logdir=lightning_logs &
         tensorboard_pid=$!
     }
-    python train_lit.py fit -c ${CONFIG} \
+    python train_lit.py fit ${_CONFIG[@]} \
         --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
         2>&1 | tee train.log
 
@@ -248,7 +254,7 @@ echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
         _CKPT="--ckpt_path $CKPT"
     }
     ls -l $CKPT
-    python train_lit.py "test" -c ${CONFIG} ${_CKPT} \
+    python train_lit.py "test" ${_CONFIG[@]} ${_CKPT} \
         --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
         2>&1 | tee test.log
     exit 0

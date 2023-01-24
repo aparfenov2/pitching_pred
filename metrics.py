@@ -104,7 +104,8 @@ def get_all_metrics(test_dl, model, sample_frq, future_len_s, skip_len_s=10):
     gts = []
     preds = []
     ts = []
-    for i,(y,t) in enumerate(test_dl):
+    for i,batch in enumerate(test_dl):
+        y, t = batch["y"], batch["t"]
         n_feats = y.shape[-1]
         _gts, _preds, _ts = make_preds(y,t, model, future_len, batch_n=i, batch_total=len(test_dl))
         gts += [torch.stack(_gts[skip_len:], axis=1).reshape(-1, n_feats)]

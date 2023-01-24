@@ -1,11 +1,13 @@
 import torch
 import pandas as pd
 import numpy as np
+import copy
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.data import Subset
 from pytorch_lightning import LightningDataModule
-from utils import resolve_classpath
+from utils import make_augs
+from typing import Dict, List
 
 class MyDataset(Dataset):
     def __init__(self, data, t, name):
@@ -20,18 +22,43 @@ class MyDataset(Dataset):
         return self.data[idx], self.t[idx]
 
 class MyDataset2(Dataset):
-    def __init__(self, data, var_names, name):
+    def __init__(self, data:Dict[str, np.ndarray], name:str):
         self.data = data
-        self.var_names = var_names
         self.name = name
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data["t"])
 
     def __getitem__(self, idx):
         return {
-            name : self.data[idx][name] for name in self.var_names
+            k : v[idx] for k,v in self.data.items()
         }
+
+    def __str__(self) -> str:
+        ret = self.name + ":\n"
+        for k,v in self.data.items():
+            ret += f"\t{k}\t{v.shape}\n"
+        return ret
+
+DEFAULT_TRAIN_CONFIG = {
+    "L":500,
+    "stride": 0.5,
+    "multiply": 10,
+    "transforms": [
+        "transforms.InvertZero"
+    ]
+}
+
+DEFAULT_VAL_CONFIG = {
+    "L":500,
+    "transforms": [
+        "transforms.InvertZero"
+    ]
+}
+
+DEFAULT_TEST_CONFIG = {
+    "L":1000,
+}
 
 class MyDataModule(LightningDataModule):
 
@@ -41,15 +68,15 @@ class MyDataModule(LightningDataModule):
         cols=['KK'],
         batch_size: int = 32,
         test_batch_size: int = 8,
-        test_L=30000,
-        train_multiply=1,
-        test_multiply=1,
-        L=1000,
-        freq=50/4,
+        freq=4,
         base_freq=50,
         test_only=False,
-        train_augs=[],
-        test_augs=[]
+        train_pipeline=None,
+        val_pipeline=None,
+        test_pipeline=None,
+        train_config=DEFAULT_TRAIN_CONFIG,
+        val_config=DEFAULT_VAL_CONFIG,
+        test_config=DEFAULT_TEST_CONFIG,
     ):
         super().__init__()
 
@@ -58,49 +85,106 @@ class MyDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.test_batch_size = test_batch_size
         self.cols = cols
-        self.test_L = test_L
-        self.L = L
-        self.train_augs = self.make_augs(train_augs)
-        self.test_augs = self.make_augs(test_augs)
+
+        def mixin_common_args(config):
+            config["base_freq"] = base_freq
+            config["freq"] = freq
+            config["cols"] = cols
+
+        train_config = copy.deepcopy(train_config)
+        val_config = copy.deepcopy(val_config)
+        test_config = copy.deepcopy(test_config)
+
+        mixin_common_args(train_config)
+        mixin_common_args(val_config)
+        val_config["L"] = train_config["L"]
+        mixin_common_args(test_config)
+
+        if train_pipeline is None:
+            train_pipeline = self.make_legacy_pipeline(**train_config)
+
+        if val_pipeline is None:
+            val_pipeline = self.make_legacy_pipeline(**val_config)
+
+        if test_pipeline is None:
+            test_pipeline = self.make_legacy_pipeline(**test_config)
+
+        train_pipeline = make_augs(train_pipeline)
+        val_pipeline = make_augs(val_pipeline)
+        test_pipeline = make_augs(test_pipeline)
+
         if not test_only:
-            self.train_set = self.read_data_and_make_dataset(
-                fn_train, cols, L=L,
-                set_name="train:"+fn_train,
-                multiply=train_multiply,
-                transforms=self.train_augs
-                )
-            self.val_set = self.read_data_and_make_dataset(fn_train, cols, L=L,
-                set_name="val:"+fn_train,
-                multiply=1,
-                transforms=self.test_augs
-                )
-        if isinstance(fn_test, str):
+            self.train_set = MyDataset2(
+                data=train_pipeline(fn_train),
+                name="train:"+fn_train
+            )
+            self.val_set = MyDataset2(
+                data=val_pipeline(fn_train),
+                name="val:"+fn_train
+            )
+            print(self.train_set)
+            print(self.val_set)
+
+        if not isinstance(fn_test, list):
             fn_test = [fn_test]
-        self.test_set = [self.read_data_and_make_dataset(
-                fn, cols, L=test_L,
-                set_name="test:"+fn,
-                multiply=test_multiply,
-                transforms=self.test_augs
-            ) for fn in fn_test]
+
+        self.test_set = [
+            MyDataset2(
+                data=test_pipeline(fn),
+                name="test:"+fn
+                ) for fn in fn_test
+            ]
+        for ts in self.test_set:
+            print(ts)
 
     @staticmethod
-    def add_speed_to_data(_data):
-        for col in _data.columns:
-            _data[f"{col}_v"] = _data[col].shift(20, fill_value=0) - _data[col]
-
-    @staticmethod
-    def make_augs(augs):
-        ret = []
-        for aug in augs:
-            if isinstance(aug, dict):
-                aug_classpath = list(aug.keys())[0]
-                aug_init_args = aug[aug_classpath]
-                aug = resolve_classpath(aug_classpath)(**aug_init_args)
-            else:
-                assert isinstance(aug, str)
-                aug = resolve_classpath(aug)()
-            ret += [aug]
-        return torch.nn.Sequential(*ret)
+    def make_legacy_pipeline(
+        cols:List=["KK"],
+        base_freq:int=50,
+        freq:int=4,
+        L:int=1000,
+        stride:float=1.0,
+        multiply:int=1,
+        transforms:List=[]
+        ):
+        return [
+            "transforms.ReadCSV",
+            "transforms.FixTime",
+            "transforms.RelativeTime",
+            "transforms.AsFloat32",
+            {
+                "transforms.PandasToDictOfNpArrays": {
+                    "mapping": {
+                        "sec": "t",
+                        **{col: "y" for col in cols}
+                    }
+                }
+            },
+            {
+                "transforms.Downsample": {
+                    "base_freq": base_freq,
+                    "freq": freq
+                }
+            },
+            {
+                "transforms.FindGapsAndTransform": {
+                    "for_each_contiguous_block": [
+                        {
+                            "transforms.StrideAndMakeBatches": {
+                                "L": L,
+                                "stride": stride
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "transforms.ConcatBatches": {
+                    "multiply": multiply
+                }
+            },
+            *transforms
+        ]
 
     def read_data_and_make_dataset(self, fn, cols, L, set_name, multiply, transforms):
 

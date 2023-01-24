@@ -73,7 +73,7 @@ class LinearModel(ModelBase):
 
     def training_step(self, batch, lit, **kwargs):
         future_len = int(lit.freq * lit.future_len_s)
-        y, t = batch
+        y = batch["y"]
         y_fut = y[:,-future_len:]
         preds = self.forward(y[:,:-future_len], future_len)
         assert preds.shape == y_fut.shape, f"{preds.shape} == {y_fut.shape}"

@@ -125,7 +125,8 @@ class LitPitchingPred(LightningModule):
     @staticmethod
     def sample_random_y(val_dl):
         random_batch = random.randint(0, len(val_dl))
-        for i,(y,t) in enumerate(val_dl):
+        for i,batch in enumerate(val_dl):
+            y, t = batch["y"], batch["t"]
             if i >= random_batch:
                 break
         batch_id = random.randrange(len(y))
