@@ -123,12 +123,12 @@ def get_all_metrics(test_dl, model, sample_frq, future_len_s, skip_len_s=10):
     mae = get_mae(tgts, tpreds)
     mse = get_mse(tgts, tpreds)
     metrics = {
-        "rel_mae.mean": rel_mae.mean(dim=(0,1,3)).squeeze(),
-        "rel_mae.max": rel_mae.max(dim=3).values.max(dim=1).values.max(dim=0).values.squeeze(),
-        "mae.mean" : mae[0].squeeze(),
-        "mae.max" : mae[1].squeeze(),
-        "mse.mean" : mse[0].squeeze(),
-        "mse.max" : mse[1].squeeze(),
+        "rel_mae.mean": torch.atleast_1d(rel_mae.mean(dim=(0,1,3)).squeeze()),
+        "rel_mae.max": torch.atleast_1d(rel_mae.max(dim=3).values.max(dim=1).values.max(dim=0).values.squeeze()),
+        "mae.mean" : torch.atleast_1d(mae[0].squeeze()),
+        "mae.max" : torch.atleast_1d(mae[1].squeeze()),
+        "mse.mean" : torch.atleast_1d(mse[0].squeeze()),
+        "mse.max" : torch.atleast_1d(mse[1].squeeze()),
     }
 
     return (

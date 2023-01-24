@@ -6,11 +6,11 @@ import json
 from typing import Any
 
 from pytorch_lightning.cli import LightningCLI
-from pytorch_lightning import cli_lightning_logo, LightningModule
+from pytorch_lightning import LightningModule
 
 from dataset import MyDataModule
-from visualization import make_validation_plots, draw_to_image, make_figure, make_preds_plot, draw_preds_plot
-from metrics import get_all_metrics, metrics_to_pandas, RelativeMAELoss, make_preds
+from visualization import draw_to_image, make_figure, make_preds_plot
+from metrics import get_all_metrics, metrics_to_pandas
 from models.base import TimeSeries
 from utils import resolve_classpath
 
@@ -106,6 +106,19 @@ class LitPitchingPred(LightningModule):
             df.to_csv(fn, index=False, sep=' ')
             print("metrics preds saved to " + fn)
 
+            # all test set plot
+            fig = make_figure()
+            df = df.drop('sec', axis=1)
+            df.plot(ax=fig.gca(), style='-', grid=True)
+            img = draw_to_image(fig)
+
+            fn = self.logger.log_dir + f"/test_img_pred_all_{ds_name}.jpg"
+            os.makedirs(os.path.dirname(fn), exist_ok=True)
+            cv2.imwrite(filename=fn, img=img[...,::-1])
+            img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
+            self.logger.experiment.add_image(ds_name+"_all", img)
+
+            # sample y plot
             y = self.sample_random_y(test_dl)
             fig = make_figure()
             make_preds_plot(

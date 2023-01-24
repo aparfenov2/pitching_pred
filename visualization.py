@@ -38,7 +38,7 @@ def make_validation_plots(axes, model, y, freq: float, current_epoch:int = None,
         if current_epoch is not None and col_names is not None:
             ax.set_title(f"Эпоха {current_epoch} частота {freq:3.2f} переменная {col_names[i]}")
 
-def make_figure():
+def make_figure() -> mpl.figure.Figure:
     fig = mpl.figure.Figure(figsize=(12, 5), dpi=100)
     fig.tight_layout(pad=0)
     return fig
