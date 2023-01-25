@@ -29,12 +29,19 @@ class MyDataModuleUT(unittest.TestCase):
             break
 
     def test_inst(self):
-        MyDataModule(
+        m = MyDataModule(
             fn_train = "tests/data/sin_train.dat",
             fn_test = "tests/data/sin_train.dat",
+            batch_size=1,
             train_config={
-                "L": 1000,
+                "L": 10,
                 "stride": 0.5,
-                "multiply": 10
+                "multiply": 1,
+                "transforms": [
+                    "transforms.InvertZero"
+                ]
             }
         )
+        dl = m.train_dataloader()
+        for batch in dl:
+            print(batch["y"])

@@ -151,6 +151,6 @@ class InvertZero(torch.nn.Module):
         y = data["y"]
         prob_msk = torch.rand((y.shape[0],)) < self.prob
         _copy = y.clone()
-        _copy[prob_msk] = y[prob_msk]
+        _copy[prob_msk] = -y[prob_msk]
         data["y"] = _copy
         return data
