@@ -80,10 +80,12 @@ class LitPitchingPred(LightningModule):
                 )
 
             # one line
-            metrics_order = ["rel_mae.max",	"rel_mae.mean",	"mae.max", "mae.mean", "mse.max", "mse.mean"]
+            metrics_order = ["mae.max", "mae.mean"]
             print(f"one liner for ds={ds_name}")
             print("\t".join(metrics_order))
-            print("\t".join([str(metrics[k]) for k in metrics_order]))
+            def tensor_to_str(t):
+                return str(t.item()) if t.ndim < 1 else str(t)
+            print("\t".join([tensor_to_str(metrics[k]) for k in metrics_order]))
 
             _json = {
                 col : {k : v[i] for k,v in metrics.items()}
