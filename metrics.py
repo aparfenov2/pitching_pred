@@ -98,7 +98,7 @@ class RelativeMAELoss(nn.Module):
         return relative_mae_metric(y, y_hat, **self.kwargs)
 
 
-def get_all_metrics(test_dl, model, sample_frq, future_len_s, skip_len_s=10):
+def get_all_metrics(test_dl, model, sample_frq, future_len_s, skip_len_s=0):
     future_len = future_len_s * sample_frq
     skip_len = skip_len_s * sample_frq
     gts = []
