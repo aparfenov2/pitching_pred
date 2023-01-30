@@ -69,12 +69,10 @@ class LinearModel(ModelBase):
         inp = torch.cat([y1s, y1s_dt], dim=1).reshape(y.shape[0], -1)
         return self.seq(inp).reshape(y.shape[0], 1, 1)
 
-    def forward(self, y, future):
+    def forward(self, y):
         preds = []
-        def none_if_0(v):
-            return v if abs(v) > 0 else None
-        for i in range(future):
-            y_hist = y[:, -self.history_len - future + i + 1: none_if_0(-future + i + 1)]
+        for i in range(y.shape[1] - self.history_len + 1):
+            y_hist = y[:, i: i + self.history_len]
             preds += [self.forward_one_step(y_hist)]
         return torch.cat(preds, dim=1)
 
@@ -82,7 +80,7 @@ class LinearModel(ModelBase):
         future_len = int(lit.freq * lit.future_len_s)
         y = batch["y"]
         y_fut = y[:,-future_len:]
-        preds = self.forward(y[:,:-future_len], future_len)
+        preds = self.forward(y[:,:-future_len])
         preds = torch.cat([preds, y_fut[:,:,1:]], dim=-1)
         assert preds.shape == y_fut.shape, f"{preds.shape} == {y_fut.shape}"
         return lit.criterion(preds, y_fut)
