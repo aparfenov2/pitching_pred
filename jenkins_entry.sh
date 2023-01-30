@@ -23,6 +23,7 @@ while [[ "$#" -gt 0 ]]; do
         --clearml-suffix) CLEARML_SUFFIX="$2"; shift ;;
         --eval) EVAL=1;;
         --daemon) DOCKER_TI="-d";;
+        --debug) DEBUG=1;;
         --docker) RUN_IN_DOCKER=1;;
         --in_docker) IN_DOCKER=1;;
         --build) DOCKER_BUILD=1;;
@@ -228,13 +229,17 @@ export CLEARML_CONFIG_FILE=$PWD/clearml.conf
 echo LOG_DIR ${LOG_DIR}
 echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
 
+[ -n "${DEBUG}" ] && {
+    DEBUGPY="-m debugpy --listen localhost:5678 --wait-for-client"
+}
+
 [ -n "${TRAIN}" ] && {
     # rm -rf lightning_logs/* || true
     [ -n "$TENSORBOARD" ] && {
         tensorboard --logdir=lightning_logs &
         tensorboard_pid=$!
     }
-    python train_lit.py fit ${_CONFIG[@]} \
+    python ${DEBUGPY} train_lit.py fit ${_CONFIG[@]} \
         --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
         2>&1 | tee train.log
 
@@ -254,7 +259,7 @@ echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
         _CKPT="--ckpt_path $CKPT"
     }
     ls -l $CKPT
-    python train_lit.py "test" ${_CONFIG[@]} ${_CKPT} \
+    python ${DEBUGPY} train_lit.py "test" ${_CONFIG[@]} ${_CKPT} \
         --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
         2>&1 | tee test.log
     exit 0
