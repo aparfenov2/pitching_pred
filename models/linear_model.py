@@ -42,12 +42,12 @@ class LinearModel(ModelBase):
         assert y.dim() == 3, str(y.shape)
         assert t.dim() == 3, str(t.shape)
 
-        for i in range(y.shape[1] - self.history_len - future_len):
-            y_0   = y[:, i + self.history_len].unsqueeze(1)
-            t_0   = t[:, i + self.history_len].unsqueeze(1)
+        for i in range(y.shape[1] - self.history_len - future_len + 1): # min 2 pts: 0-hist, 1-gt
+            y_0   = y[:, i + self.history_len - 1].unsqueeze(1) # current pt is included in hist
+            t_0   = t[:, i + self.history_len - 1].unsqueeze(1)
             y_hist   = y[:, i: i + self.history_len]
-            y_fut = y[:, i + self.history_len + future_len].unsqueeze(1)
-            t_fut = t[:, i + self.history_len + future_len].unsqueeze(1)
+            y_fut = y[:, i + self.history_len + future_len - 1].unsqueeze(1)
+            t_fut = t[:, i + self.history_len + future_len - 1].unsqueeze(1)
 
             p_fut = self.forward_one_step(y_hist)
 
@@ -57,6 +57,7 @@ class LinearModel(ModelBase):
                 )
 
     def forward_one_step(self, y:torch.Tensor):
+        assert y.shape[1] >= self.history_len, f"{y.shape[1]} >= {self.history_len}"
         y1s = y[:,-self.history_len:][:,::self.freq] # 50 vals
         assert y1s.shape[1] == self.num_points, f"{y1s.shape[1]} == {self.num_points}"
         y1s_dt = y1s[:,1:] - y1s[:,:1]
