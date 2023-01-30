@@ -155,6 +155,8 @@ class LitPitchingPred(LightningModule):
         return TimeSeries(t, y)
 
     def training_epoch_end(self, training_step_outputs):
+        if self.trainer.current_epoch % self.metrics_each != 0:
+            return
         with torch.no_grad():
             val_dl = self.trainer.val_dataloaders[0]
             y: TimeSeries = self.sample_random_y(val_dl)
