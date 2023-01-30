@@ -51,9 +51,9 @@ class AddSpeed(torch.nn.Module):
             _data[f"{col}_v"] = _data[col].shift(self.delay, fill_value=0) - _data[col]
 
     def forward(self, data: pd.DataFrame):
-        _copy = data.copy()
-        self.add_speed_to_data(_copy)
-        return _copy
+        _y = data.copy()
+        self.add_speed_to_data(_y)
+        return _y
 
 class PandasToDictOfNpArrays(torch.nn.Module):
     def __init__(self, mapping):
@@ -150,7 +150,21 @@ class InvertZero(torch.nn.Module):
         data = dict(data)
         y = data["y"]
         prob_msk = torch.rand((y.shape[0],)) < self.prob
-        _copy = y.clone()
-        _copy[prob_msk] = -y[prob_msk]
-        data["y"] = _copy
+        _y = y.clone()
+        _y[prob_msk] = -y[prob_msk]
+        data["y"] = _y
+        return data
+
+class InvertTime(torch.nn.Module):
+    def __init__(self, prob=0.5):
+        super().__init__()
+        self.prob = prob
+
+    def forward(self, data: Dict[str, torch.Tensor]):
+        data = dict(data)
+        y = data["y"]
+        prob_msk = torch.rand((y.shape[0],)) < self.prob
+        _y = y.clone()
+        _y[prob_msk] = y[prob_msk].flip(dims=(1,))
+        data["y"] = _y
         return data
