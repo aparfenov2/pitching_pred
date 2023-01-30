@@ -101,17 +101,8 @@ class Seq2Seq(ModelBase):
         assert encoder.n_layers == decoder.n_layers, \
             "Encoder and decoder must have equal number of layers!"
 
-    def forward(self, y, future, teacher_forcing_ratio = 0):
-        # emulate behaviour of previous models
-        assert future > 0
-        assert teacher_forcing_ratio == 0
-        src = y
-        trg = torch.zeros((y.shape[0], future, y.shape[2]), dtype=y.dtype)
-        trg[:, 0] = y[:,-1]
-        pred = self.forward1(src=src, trg=trg, teacher_forcing_ratio=teacher_forcing_ratio)
-        return torch.cat([src, pred], dim=1)
-
-    def forward1(self, src, trg, teacher_forcing_ratio = 0.5):
+    def forward(self, src, trg):
+        teacher_forcing_ratio = 0.5 if self.training else 0
 
         src = src.permute(1, 0, 2)
         trg = trg.permute(1, 0, 2)
@@ -155,36 +146,32 @@ class Seq2Seq(ModelBase):
         outputs = outputs.permute(1, 0, 2) # N, L, F
         return outputs
 
-    def training_step(self, batch, lit, **kwargs):
-        y, t = batch
-        src = y[:,-self.history_len:-self.train_future_len]
-        trg = y[:,-self.train_future_len:]
-        output = self.forward1(src, trg)
-        return lit.criterion(output, trg)
-
-    def validation_step(self, batch, lit, **kwargs):
-        y, t = batch
-        src = y[:,-self.history_len:-self.train_future_len]
-        trg = y[:,-self.train_future_len:]
-        output = self.forward1(src, trg, teacher_forcing_ratio=0)
-        return {
-            'val_pred_loss': lit.criterion(output, trg)
-        }
+    def get_loss(self, batch, criterion):
+        y = batch["y"]
+        losses = []
+        for i in range(y.shape[1] - self.history_len - self.train_future_len + 1):
+            src = y[:, i: i + self.history_len]
+            trg = y[:, i + self.history_len: i + self.history_len + self.train_future_len]
+            output = self.forward(src, trg)
+            loss = criterion(output, trg)
+            losses += [loss]
+        return torch.mean(torch.stack(losses, dim=0))
 
     def make_preds_gen(self, ts : TimeSeries, future_len: int):
         y,t = ts.y, ts.t
         assert y.dim() == 3, str(y.shape)
         assert t.dim() == 3, str(t.shape)
-        assert y.shape[1] > self.history_len - future_len, f"y.shape[1] {y.shape[1]} self.history_len {self.history_len} future_len {future_len}"
+        assert y.shape[1] >= self.history_len + future_len, f"y.shape[1] {y.shape[1]} self.history_len {self.history_len} future_len {future_len}"
+        assert not self.training
 
-        for i in range(y.shape[1] - self.history_len - future_len):
+        for i in range(y.shape[1] - self.history_len - future_len + 1):
 
             src = y[:, i: i + self.history_len]
             trg = y[:, i + self.history_len: i + self.history_len + future_len]
-            output = self.forward1(src, trg, teacher_forcing_ratio=0)
+            output = self.forward(src, trg)
 
-            y_fut = y[:, i + self.history_len + future_len].unsqueeze(1)
-            t_fut = t[:, i + self.history_len + future_len].unsqueeze(1)
+            y_fut = y[:, i + self.history_len + future_len - 1].unsqueeze(1)
+            t_fut = t[:, i + self.history_len + future_len - 1].unsqueeze(1)
             p_fut = output[:,-1].unsqueeze(1)
 
             yield t_fut, y_fut, p_fut, TimeSeries(
@@ -214,9 +201,9 @@ def make_model(
         freq=freq
         ).to(device)
 
-    def init_weights(m):
-        for name, param in m.named_parameters():
-            nn.init.uniform_(param.data, -0.08, 0.08)
+    # def init_weights(m):
+    #     for name, param in m.named_parameters():
+    #         nn.init.uniform_(param.data, -0.08, 0.08)
 
-    model.apply(init_weights)
+    # model.apply(init_weights)
     return model

@@ -12,6 +12,7 @@ class LinearModel(ModelBase):
 
     def __init__(self,
         freq,
+        future_len_s,
         history_len_s=50,
         num_layers=1,
         num_feats=1,
@@ -23,6 +24,7 @@ class LinearModel(ModelBase):
         self.history_len_s = history_len_s
         self.history_len = int(history_len_s * freq)
         self.freq = freq
+        self.future_len = int(freq * future_len_s)
         layers = []
         #          y                    y'
         input_sz = self.num_points * num_feats + (self.num_points - 1)
@@ -76,16 +78,10 @@ class LinearModel(ModelBase):
             preds += [self.forward_one_step(y_hist)]
         return torch.cat(preds, dim=1)
 
-    def training_step(self, batch, lit, **kwargs):
-        future_len = int(lit.freq * lit.future_len_s)
+    def get_loss(self, batch, criterion):
         y = batch["y"]
-        y_fut = y[:,-future_len:]
-        preds = self.forward(y[:,:-future_len])
+        y_fut = y[:,-self.future_len:]
+        preds = self.forward(y[:,:-self.future_len])
         preds = torch.cat([preds, y_fut[:,:,1:]], dim=-1)
         assert preds.shape == y_fut.shape, f"{preds.shape} == {y_fut.shape}"
-        return lit.criterion(preds, y_fut)
-
-    def validation_step(self, batch, lit, **kwargs):
-        return {
-            "val_pred_loss": self.training_step(batch, lit, **kwargs)
-        }
+        return criterion(preds, y_fut)

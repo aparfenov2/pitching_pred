@@ -45,20 +45,15 @@ class LitPitchingPred(LightningModule):
         self.val_criterion = resolve_classpath(val_criterion)()
 
     def training_step(self, batch, batch_idx):
-        loss = self.model.training_step(
-            batch=batch,
-            lit=self
-            )
+        assert self.training
+        loss = self.model.get_loss(batch, criterion=self.criterion)
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        losses = self.model.validation_step(
-            batch=batch,
-            lit=self
-            )
-        for k,v in losses.items():
-            self.log(k, v)
+        assert not self.training
+        loss = self.model.get_loss(batch, criterion=self.val_criterion)
+        self.log("val_pred_loss", loss)
 
     def test_step(self, *args):
         return 0

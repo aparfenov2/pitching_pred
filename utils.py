@@ -1,6 +1,7 @@
 import torch
 from importlib import import_module
 from typing import List, Union, Dict
+from contextlib import contextmanager
 
 def resolve_classpath(p):
     if '.' not in p:
@@ -26,3 +27,14 @@ def make_augs(augs: List):
     for aug in augs:
         ret += [make_transform(aug)]
     return torch.nn.Sequential(*ret)
+
+@contextmanager
+def evaluating(net):
+    '''Temporarily switch to evaluation mode.'''
+    istrain = net.training
+    try:
+        net.eval()
+        yield net
+    finally:
+        if istrain:
+            net.train()

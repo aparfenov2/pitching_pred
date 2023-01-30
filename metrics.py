@@ -4,6 +4,7 @@ from torch.nn import functional as F
 import pandas as pd
 import torch.nn as nn
 from models import TimeSeries
+from utils import evaluating
 
 def make_preds(y,t, model, future_len, batch_n=None, batch_total=None):
     # expected: tensors
@@ -13,7 +14,7 @@ def make_preds(y,t, model, future_len, batch_n=None, batch_total=None):
             batch_n_str = " (batch " + str(batch_n + 1) + ")"
         else:
             batch_n_str = " (batch " + str(batch_n + 1) + " of " + str(batch_total) +")"
-    with torch.no_grad():
+    with evaluating(model), torch.no_grad():
         en = model.make_preds_gen(TimeSeries(t,y), future_len)
         en = tqdm(en, total=y.shape[1], desc="calculate test metrics" + batch_n_str + " bsz " + str(y.shape[0]))
         en = list(en)

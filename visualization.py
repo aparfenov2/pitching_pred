@@ -7,6 +7,7 @@ mpl.use('Agg')
 import matplotlib.figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from models.base import TimeSeries
+from utils import evaluating
 
 def make_validation_plots(axes, model, y, freq: float, current_epoch:int = None, col_names=None):
 
@@ -113,11 +114,13 @@ def make_preds_plot(
     pts = []
     ts_pred = TimeSeries(t.unsqueeze(0), y.unsqueeze(0))
 
-    en = model.make_preds_gen(ts_pred, future_len)
-    for e in tqdm(en, total=ts_pred.y.shape[1], desc="cummulative preds plot"):
-        pts += [e[0]]
-        preds += [e[2]]
-        preds_last = e[3]
+    with evaluating(model), torch.no_grad():
+        en = model.make_preds_gen(ts_pred, future_len)
+
+        for e in tqdm(en, total=ts_pred.y.shape[1], desc="cummulative preds plot"):
+            pts += [e[0]]
+            preds += [e[2]]
+            preds_last = e[3]
 
     pts = torch.cat(pts[-window_len:], dim=1)
     preds = torch.cat(preds[-window_len:], dim=1)
@@ -150,27 +153,28 @@ def live_preds_plot(
         assert y.dim() == 3, str(y.dim())
         assert t.dim() == 3, str(t.dim())
 
-        en = model.make_preds_gen(TimeSeries(t, y), future_len)
+        with evaluating(model), torch.no_grad():
+            en = model.make_preds_gen(TimeSeries(t, y), future_len)
 
-        for step, e in enumerate(en):
-            ts += [e[0]]
-            gts += [e[1]]
-            preds += [e[2]]
-            preds_last = e[3]
+            for step, e in enumerate(en):
+                ts += [e[0]]
+                gts += [e[1]]
+                preds += [e[2]]
+                preds_last = e[3]
 
-            while len(ts) > window_len:
-                ts.pop(0)
-            while len(gts) > window_len:
-                gts.pop(0)
-            while len(preds) > window_len:
-                preds.pop(0)
+                while len(ts) > window_len:
+                    ts.pop(0)
+                while len(gts) > window_len:
+                    gts.pop(0)
+                while len(preds) > window_len:
+                    preds.pop(0)
 
-            if step % draw_step_size == 0:
-                ax.clear()
-                tts = torch.cat(ts, dim=1)
-                tgts = torch.cat(gts, dim=1)
-                tpreds = torch.cat(preds, dim=1)
+                if step % draw_step_size == 0:
+                    ax.clear()
+                    tts = torch.cat(ts, dim=1)
+                    tgts = torch.cat(gts, dim=1)
+                    tpreds = torch.cat(preds, dim=1)
 
-                draw_preds_plot(ax, TimeSeries(tts, tgts), TimeSeries(tts, tpreds), preds_last, future_len_s, feature_id, cols)
-                fig.canvas.draw()
-                fig.canvas.flush_events()
+                    draw_preds_plot(ax, TimeSeries(tts, tgts), TimeSeries(tts, tpreds), preds_last, future_len_s, feature_id, cols)
+                    fig.canvas.draw()
+                    fig.canvas.flush_events()
