@@ -247,15 +247,13 @@ class MyDataModule(LightningDataModule):
         return np.where(abs(np.diff(a))>threshold)[0] + 1
 
     def train_dataloader(self):
-        return DataLoader(self.train_set, batch_size=self.batch_size, num_workers=1)
+        return DataLoader(self.train_set, batch_size=self.batch_size, num_workers=1, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, batch_size=self.batch_size, num_workers=1)
+        return DataLoader(self.val_set, batch_size=self.batch_size, num_workers=1, shuffle=True)
 
     def test_dataloader(self):
-        if not isinstance(self.test_set, list):
-            return [DataLoader(self.test_set, batch_size=self.test_batch_size, num_workers=1)]
-        return [DataLoader(ts, batch_size=self.test_batch_size, num_workers=1) for ts in self.test_set]
+        return [DataLoader(ts, batch_size=self.test_batch_size, num_workers=1, shuffle=False) for ts in self.test_set]
 
     def predict_dataloader(self):
         return DataLoader(self.test_set, batch_size=1, num_workers=1)

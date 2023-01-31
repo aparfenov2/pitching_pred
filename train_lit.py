@@ -80,7 +80,7 @@ class LitPitchingPred(LightningModule):
             print("\t".join(metrics_order))
             def tensor_to_str(t):
                 return str(t.item()) if t.ndim < 1 else str(t)
-            print("\t".join([tensor_to_str(metrics[k]) for k in metrics_order]))
+            print("\t".join([tensor_to_str(metrics[k].squeeze()) for k in metrics_order]))
 
             _json = {
                 col : {k : v[i] for k,v in metrics.items()}
