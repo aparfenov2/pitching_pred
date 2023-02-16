@@ -3,6 +3,7 @@ import random
 import cv2
 import os
 import json
+import pickle
 from typing import Any
 
 from pytorch_lightning.cli import LightningCLI
@@ -114,6 +115,9 @@ class LitPitchingPred(LightningModule):
             cv2.imwrite(filename=fn, img=img[...,::-1])
             img = img.swapaxes(0, 2).swapaxes(1, 2) # CHW
             self.logger.experiment.add_image(ds_name+"_all", img)
+            fn = self.logger.log_dir + f"/test_img_pred_all_{ds_name}.pkl"
+            with open(fn, 'wb') as f:
+                pickle.dump(fig, f)
 
             # sample y plot
             y = self.sample_random_y(test_dl)
