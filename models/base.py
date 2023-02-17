@@ -36,7 +36,7 @@ class ModelBase(nn.Module):
         pls = [e[3] for e in en]
         return TimeSeries(t, y), TimeSeries(t, p), pls
 
-    def training_step(self, batch, lit, **kwargs):
+    def base_training_step(self, batch, lit):
         future_len = int(lit.freq * lit.train_future_len_s)
         data, t = batch
         x = data[:, :-1]
@@ -45,7 +45,13 @@ class ModelBase(nn.Module):
         # assert out.shape == y[...,:out.shape[-1]].shape, str(out.shape) + " " + str(y[...,:out.shape[-1]].shape)
         return lit.criterion(out, y)
 
-    def validation_step(self, batch, lit, **kwargs):
+    def training_step(self, batch, lit):
+        raise NotImplementedError()
+
+    def validation_step(self, batch, lit):
+        raise NotImplementedError()
+
+    def base_validation_step(self, batch, lit):
         data, t = batch
         x = data[:, :-1]
         y = data[:, 1:]
