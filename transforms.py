@@ -155,6 +155,22 @@ class InvertZero(torch.nn.Module):
         data["y"] = _y
         return data
 
+class InvertMean(torch.nn.Module):
+    def __init__(self, prob=0.5):
+        super().__init__()
+        self.prob = prob
+
+    def forward(self, data: Dict[str, torch.Tensor]):
+        data = dict(data)
+        y = data["y"].clone()
+        prob_msk = torch.rand((y.shape[0],)) < self.prob
+        mean = torch.mean(y, dim=1)
+        y[prob_msk] = y[prob_msk] - mean[prob_msk]
+        y[prob_msk] = -y[prob_msk]
+        y[prob_msk] = y[prob_msk] + mean[prob_msk]
+        data["y"] = y
+        return data
+
 class InvertTime(torch.nn.Module):
     def __init__(self, prob=0.5):
         super().__init__()
@@ -167,4 +183,27 @@ class InvertTime(torch.nn.Module):
         _y = y.clone()
         _y[prob_msk] = y[prob_msk].flip(dims=(1,))
         data["y"] = _y
+        return data
+
+class BiasAndScale(torch.nn.Module):
+    def __init__(self, prob=0.5):
+        super().__init__()
+        self.prob = prob
+
+    def forward(self, data: Dict[str, torch.Tensor]):
+        data = dict(data)
+        y = data["y"].clone()
+        r1 = torch.min(y, dim=1)
+        r2 = torch.max(y, dim=1)
+        prob_msk = torch.rand((y.shape[0],)) < self.prob
+
+        y[prob_msk] = y[prob_msk] - torch.mean(y[prob_msk], dim=1)
+
+        bias = (r2 - r1) * torch.rand((y.shape[0],)) + r1
+        bias = bias / 2.0
+        r1 = 0.5
+        r2 = 1.5
+        scale = (r2 - r1) * torch.rand((y.shape[0],)) + r1
+        y[prob_msk] = y[prob_msk] * scale[prob_msk] + bias[prob_msk]
+        data["y"] = y
         return data

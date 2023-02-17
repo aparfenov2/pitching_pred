@@ -9,18 +9,6 @@ from pytorch_lightning import LightningDataModule
 from utils import make_augs
 from typing import Dict, List
 
-class MyDataset(Dataset):
-    def __init__(self, data, t, name):
-        self.data = data
-        self.t = t
-        self.name = name
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx], self.t[idx]
-
 class MyDataset2(Dataset):
     def __init__(self, data:Dict[str, np.ndarray], name:str):
         self.data = data
@@ -185,53 +173,6 @@ class MyDataModule(LightningDataModule):
             },
             *transforms
         ]
-
-    def read_data_and_make_dataset(self, fn, cols, L, set_name, multiply, transforms):
-
-        data = pd.read_csv(fn, sep=" ")
-        gaps = self._find_gaps(data)
-        gaps = [0, *gaps, len(data)] * multiply
-        print(set_name, gaps)
-
-        datas = []
-        ts    = []
-        divider = int(self.base_freq / self.freq)
-
-        for g0,g1 in zip(gaps, gaps[1:] ):
-            if g0 > g1:
-                continue
-            _data = data[g0+1: g1-1].copy()
-            self.add_speed_to_data(_data)
-            t     = _data["sec"]
-            if "msec" in _data.columns:
-                t     += _data["msec"]/1000
-            _data = _data[cols].values
-            t     = t.values
-            t -= t[0]
-            _data = _data[::divider]
-            t     = t[::divider]
-            _data = _data[:(len(_data)//L)*L]
-            t     =     t[:(len(_data)//L)*L]
-            if len(_data.shape) == 1:
-                _data = _data.reshape(-1, L, 1).astype('float32')
-            else:
-                _data = _data.reshape(-1, L, _data.shape[-1]).astype('float32')
-            t     = t.reshape(-1, L, 1).astype('float32')
-            datas += [_data]
-            ts    += [t]
-        data = np.concatenate(datas, axis=0)
-        t    = np.concatenate(ts,    axis=0)
-        data = torch.tensor(data)
-        t    = torch.tensor(t)
-
-        # np.savetxt("before.csv", data.flatten().numpy())
-        data = transforms(data)
-        # np.savetxt("after.csv", data.flatten().numpy())
-
-
-        assert len(t) == len(data), str(len(t)) + ' ' + str(len(data))
-        print(f"{set_name}: data.shape {data.shape}")
-        return MyDataset(data, t, set_name)
 
     def train_val_dataset(dataset, val_split=0.25):
         train_idx, val_idx = train_test_split(list(range(len(dataset))), test_size=val_split)
