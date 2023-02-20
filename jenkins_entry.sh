@@ -216,6 +216,12 @@ set -e
 LOG_DIR=lightning_logs/config_${LOG_DIR_NUM}
 mkdir -p ${LOG_DIR} || true
 
+SRC_TGZ="src.tgz"
+[ ! -f "${SRC_TGZ}" ] || {
+    tar --exclude='.[^/]*' -czf ${SRC_TGZ} .
+}
+cp ${SRC_TGZ} ${LOG_DIR}
+
 _CONFIG=()
 for CONFIG in ${CONFIGS[@]}; do
     cp ${CONFIG} ${LOG_DIR}
