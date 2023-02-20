@@ -148,9 +148,14 @@ class Seq2Seq(ModelBase):
 
     def get_loss(self, batch, criterion):
         y = batch["y"]
+        noise = None
+        if "noise" in batch:
+            noise = batch["noise"]
         losses = []
         for i in range(y.shape[1] - self.history_len - self.train_future_len + 1):
             src = y[:, i: i + self.history_len]
+            if noise is not None:
+                src = src + noise[:, i: i + self.history_len]
             trg = y[:, i + self.history_len: i + self.history_len + self.train_future_len]
             output = self.forward(src, trg)
             loss = criterion(output, trg)

@@ -217,9 +217,8 @@ LOG_DIR=lightning_logs/config_${LOG_DIR_NUM}
 mkdir -p ${LOG_DIR} || true
 
 SRC_TGZ="src.tgz"
-[ ! -f "${SRC_TGZ}" ] || {
-    tar --exclude='.[^/]*' -czf ${SRC_TGZ} .
-}
+rm ${SRC_TGZ} || true
+find . -name "*.py" | tar -czf ${SRC_TGZ} -T -
 cp ${SRC_TGZ} ${LOG_DIR}
 
 _CONFIG=()
