@@ -207,3 +207,15 @@ class BiasAndScale(torch.nn.Module):
         y[prob_msk] = y[prob_msk] * scale[prob_msk] + bias[prob_msk]
         data["y"] = y
         return data
+
+class AddNoiseChannel(torch.nn.Module):
+    def __init__(self, amplitude=0.1):
+        super().__init__()
+        self.amplitude = amplitude
+
+    def forward(self, data: Dict[str, torch.Tensor]):
+        data = dict(data)
+        y = data["y"]
+        noise = (torch.rand_like(y) - 0.5) * self.amplitude
+        data["noise"] = noise
+        return data
