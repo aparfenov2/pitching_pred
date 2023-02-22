@@ -139,7 +139,7 @@ class ConcatBatches(torch.nn.Module):
             k: torch.stack(ravel(v)).repeat(self.multiply,1,1) for k, v in data.items()
         }
 
-# --------------------------------- input: tensor -----------------------------------------
+# --------------------------------- input: single sequence tensor -----------------------------------------
 
 class InvertZero(torch.nn.Module):
     def __init__(self, prob=0.5):
@@ -148,11 +148,11 @@ class InvertZero(torch.nn.Module):
 
     def forward(self, data: Dict[str, torch.Tensor]):
         data = dict(data)
-        y = data["y"]
-        prob_msk = torch.rand((y.shape[0],)) < self.prob
-        _y = y.clone()
-        _y[prob_msk] = -y[prob_msk]
-        data["y"] = _y
+        prob_msk = torch.rand(1) < self.prob
+        if prob_msk:
+            y = data["y"].clone()
+            y = -y
+            data["y"] = y
         return data
 
 class InvertMean(torch.nn.Module):
@@ -162,13 +162,14 @@ class InvertMean(torch.nn.Module):
 
     def forward(self, data: Dict[str, torch.Tensor]):
         data = dict(data)
-        y = data["y"].clone()
-        prob_msk = torch.rand((y.shape[0],)) < self.prob
-        mean = torch.mean(y, dim=1)
-        y[prob_msk] = y[prob_msk] - mean[prob_msk]
-        y[prob_msk] = -y[prob_msk]
-        y[prob_msk] = y[prob_msk] + mean[prob_msk]
-        data["y"] = y
+        prob_msk = torch.rand(1) < self.prob
+        if prob_msk:
+            y = data["y"].clone()
+            mean = torch.mean(y, dim=0)
+            y = y - mean
+            y = -y
+            y = y + mean
+            data["y"] = y
         return data
 
 class InvertTime(torch.nn.Module):
@@ -178,11 +179,11 @@ class InvertTime(torch.nn.Module):
 
     def forward(self, data: Dict[str, torch.Tensor]):
         data = dict(data)
-        y = data["y"]
-        prob_msk = torch.rand((y.shape[0],)) < self.prob
-        _y = y.clone()
-        _y[prob_msk] = y[prob_msk].flip(dims=(1,))
-        data["y"] = _y
+        prob_msk = torch.rand(1) < self.prob
+        if prob_msk:
+            y = data["y"].clone()
+            y = y.flip(dims=(0,))
+            data["y"] = y
         return data
 
 class BiasAndScale(torch.nn.Module):
@@ -192,20 +193,21 @@ class BiasAndScale(torch.nn.Module):
 
     def forward(self, data: Dict[str, torch.Tensor]):
         data = dict(data)
-        y = data["y"].clone()
-        r1 = torch.min(y, dim=1)
-        r2 = torch.max(y, dim=1)
-        prob_msk = torch.rand((y.shape[0],)) < self.prob
+        prob_msk = torch.rand(1) < self.prob
+        if prob_msk:
+            y = data["y"].clone()
+            r1 = torch.min(y, dim=0).values
+            r2 = torch.max(y, dim=0).values
 
-        y[prob_msk] = y[prob_msk] - torch.mean(y[prob_msk], dim=1)
+            y = y - torch.mean(y, dim=0)
 
-        bias = (r2 - r1) * torch.rand((y.shape[0],)) + r1
-        bias = bias / 2.0
-        r1 = 0.5
-        r2 = 1.5
-        scale = (r2 - r1) * torch.rand((y.shape[0],)) + r1
-        y[prob_msk] = y[prob_msk] * scale[prob_msk] + bias[prob_msk]
-        data["y"] = y
+            bias = (r2 - r1) * torch.rand(1) + r1
+            bias = bias / 2.0
+            r1 = 0.5
+            r2 = 1.5
+            scale = (r2 - r1) * torch.rand(1) + r1
+            y = y * scale + bias
+            data["y"] = y
         return data
 
 class AddNoiseChannel(torch.nn.Module):

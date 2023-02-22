@@ -10,17 +10,23 @@ from utils import make_augs
 from typing import Dict, List
 
 class MyDataset2(Dataset):
-    def __init__(self, data:Dict[str, np.ndarray], name:str):
+    def __init__(self,
+                 data:Dict[str, np.ndarray],
+                 name:str,
+                 transforms:torch.nn.Sequential
+                 ):
         self.data = data
         self.name = name
+        self.transforms = transforms
 
     def __len__(self):
         return len(self.data["t"])
 
     def __getitem__(self, idx):
-        return {
+        item = {
             k : v[idx] for k,v in self.data.items()
         }
+        return self.transforms(item)
 
     def __str__(self) -> str:
         ret = self.name + ":\n"
@@ -46,6 +52,7 @@ DEFAULT_VAL_CONFIG = {
 
 DEFAULT_TEST_CONFIG = {
     "L":1000,
+    "transforms": []
 }
 
 class MyDataModule(LightningDataModule):
@@ -104,10 +111,12 @@ class MyDataModule(LightningDataModule):
         if not test_only:
             self.train_set = MyDataset2(
                 data=train_pipeline(fn_train),
+                transforms=make_augs(train_config["transforms"]),
                 name="train:"+fn_train
             )
             self.val_set = MyDataset2(
                 data=val_pipeline(fn_train),
+                transforms=make_augs(val_config["transforms"]),
                 name="val:"+fn_train
             )
             print(self.train_set)
@@ -119,6 +128,7 @@ class MyDataModule(LightningDataModule):
         self.test_set = [
             MyDataset2(
                 data=test_pipeline(fn),
+                transforms=make_augs(test_config["transforms"]),
                 name="test:"+fn
                 ) for fn in fn_test
             ]
@@ -171,7 +181,6 @@ class MyDataModule(LightningDataModule):
                     "multiply": multiply
                 }
             },
-            *transforms
         ]
 
     def train_val_dataset(dataset, val_split=0.25):
