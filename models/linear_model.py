@@ -59,8 +59,8 @@ class LinearModel(ModelBase):
                 )
 
     def forward_one_step(self, y:torch.Tensor):
-        assert y.shape[1] >= self.history_len, f"{y.shape[1]} >= {self.history_len}"
-        y1s = y[:,-self.history_len:][:,::self.freq] # 50 vals
+        assert y.shape[1] == self.history_len, f"{y.shape[1]} == {self.history_len}"
+        y1s = y[:,::self.freq] # 50 vals
         assert y1s.shape[1] == self.num_points, f"{y1s.shape[1]} == {self.num_points}"
         y1s_dt = y1s[:,1:] - y1s[:,:1]
         y1s_dt = y1s_dt[:,:,0].unsqueeze(-1) # only y
@@ -80,8 +80,8 @@ class LinearModel(ModelBase):
 
     def get_loss(self, batch, criterion):
         y = batch["y"]
-        y_fut = y[:,-self.future_len:]
-        preds = self.forward(y[:,:-self.future_len])
-        preds = torch.cat([preds, y_fut[:,:,1:]], dim=-1)
+        src   = y[:, :-self.future_len]  # [[...................]<- future_len ->]
+        y_fut = y[:, self.history_len + self.future_len - 1:]  # [<- history_len + future_len - 1 ->[......................]]
+        preds = self.forward(src)
         assert preds.shape == y_fut.shape, f"{preds.shape} == {y_fut.shape}"
         return criterion(preds, y_fut)
