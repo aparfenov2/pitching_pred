@@ -27,7 +27,8 @@ class LinearModel(ModelBase):
         self.future_len = int(freq * future_len_s)
         layers = []
         #          y                    y'
-        input_sz = self.num_points * num_feats + (self.num_points - 1)
+        # input_sz = self.num_points * num_feats + (self.num_points - 1)
+        input_sz = self.num_points * num_feats
         for i in range(num_layers - 1):
             layers += [nn.Linear(input_sz, hidden_sz)]
             layers += [nn.ReLU()]
@@ -68,7 +69,8 @@ class LinearModel(ModelBase):
         assert y1s_dt.shape[1] == self.num_points - 1, f"{y1s_dt.shape[1]} == {self.num_points} - 1"
         assert y1s.shape[-1] == y1s_dt.shape[-1] == 1, f"{y1s.shape[-1]} == {y1s_dt.shape[-1]} == 1"
 
-        inp = torch.cat([y1s, y1s_dt], dim=1).reshape(y.shape[0], -1)
+        # inp = torch.cat([y1s, y1s_dt], dim=1).reshape(y.shape[0], -1)
+        inp = y1s.reshape(y.shape[0], -1)
         return self.seq(inp).reshape(y.shape[0], 1, 1)
 
     def forward(self, y):
@@ -83,5 +85,22 @@ class LinearModel(ModelBase):
         src   = y[:, :-self.future_len]  # [[...................]<- future_len ->]
         y_fut = y[:, self.history_len + self.future_len - 1:]  # [<- history_len + future_len - 1 ->[......................]]
         preds = self.forward(src)
+        preds = torch.cat([preds, y_fut[:,:,1:]], dim=-1) # append other features to predictions
         assert preds.shape == y_fut.shape, f"{preds.shape} == {y_fut.shape}"
         return criterion(preds, y_fut)
+
+
+def test_model():
+    model = LinearModel(
+        freq=1,
+        future_len_s=3
+    )
+    batch = {
+        "y": torch.rand(1, 112, 1)
+    }
+    # preds = model.forward(batch)
+    criterion = nn.L1Loss()
+    loss = model.get_loss(batch, criterion)
+
+if __name__ == '__main__':
+    test_model()
