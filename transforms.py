@@ -41,7 +41,7 @@ class AsFloat32(torch.nn.Module):
     def forward(self, _data: pd.DataFrame):
         return _data.astype('float32')
 
-class AddSpeed(torch.nn.Module):
+class PdAddSpeed(torch.nn.Module):
     def __init__(self, distance=20):
         super().__init__()
         self.delay = distance
@@ -108,6 +108,17 @@ class FindGapsAndTransform(torch.nn.Module):
         for k, v in data.items():
             ret[k] += [_ret[k]]
         return ret
+
+class AddSpeed(torch.nn.Module):
+    def __init__(self, distance=20):
+        super().__init__()
+        self.delay = distance
+
+    def forward(self, data: Dict[str, np.ndarray]):
+        _data = dict(data)
+        for col in data.keys():
+            _data[f"{col}_v"] = data[col][self.delay:] - data[col][:-self.delay]
+        return _data
 
 class StrideAndMakeBatches(torch.nn.Module):
     def __init__(self, L, stride=0.5) -> None:

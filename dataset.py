@@ -143,13 +143,16 @@ class MyDataModule(LightningDataModule):
         L:int=1000,
         stride:float=1.0,
         multiply:int=1,
-        transforms:List=[]
+        transforms:List=[],    # stub for per-sequence transforms
+        pd_transforms:List=[],  # pandas transforms
+        block_transforms:List=[]  # contiguous block transforms
         ):
         return [
             "transforms.ReadCSV",
             "transforms.FixTime",
             "transforms.RelativeTime",
             "transforms.AsFloat32",
+            *pd_transforms,
             {
                 "transforms.PandasToDictOfNpArrays": {
                     "mapping": {
@@ -167,6 +170,7 @@ class MyDataModule(LightningDataModule):
             {
                 "transforms.FindGapsAndTransform": {
                     "for_each_contiguous_block": [
+                        *block_transforms,
                         {
                             "transforms.StrideAndMakeBatches": {
                                 "L": L,
