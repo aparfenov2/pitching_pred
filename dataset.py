@@ -15,6 +15,7 @@ class MyDataset2(Dataset):
                  name:str,
                  transforms:torch.nn.Sequential
                  ):
+        assert len(data) > 0, name
         self.data = data
         self.name = name
         self.transforms = transforms
@@ -32,6 +33,8 @@ class MyDataset2(Dataset):
         ret = self.name + ":\n"
         for k,v in self.data.items():
             ret += f"\t{k}\t{v.shape}\n"
+            break
+        ret += "others: " + ", ".join(list(self.data.keys())[1:])
         return ret
 
 DEFAULT_TRAIN_CONFIG = {
@@ -94,13 +97,13 @@ class MyDataModule(LightningDataModule):
         mixin_common_args(test_config)
 
         if train_pipeline is None:
-            train_pipeline = self.make_legacy_pipeline(**train_config)
+            train_pipeline = self.make_legacy_pipeline(name="train", **train_config)
 
         if val_pipeline is None:
-            val_pipeline = self.make_legacy_pipeline(**val_config)
+            val_pipeline = self.make_legacy_pipeline(name="val", **val_config)
 
         if test_pipeline is None:
-            test_pipeline = self.make_legacy_pipeline(**test_config)
+            test_pipeline = self.make_legacy_pipeline(name="test", **test_config)
 
         train_pipeline = make_augs(train_pipeline)
         val_pipeline = make_augs(val_pipeline)
@@ -108,12 +111,12 @@ class MyDataModule(LightningDataModule):
 
         if not test_only:
             self.train_set = MyDataset2(
-                data=train_pipeline(fn_train),
+                data=train_pipeline(fn_train).data,
                 transforms=make_augs(train_config["transforms"]),
                 name="train:"+fn_train
             )
             self.val_set = MyDataset2(
-                data=val_pipeline(fn_train),
+                data=val_pipeline(fn_train).data,
                 transforms=make_augs(val_config["transforms"]),
                 name="val:"+fn_train
             )
@@ -125,7 +128,7 @@ class MyDataModule(LightningDataModule):
 
         self.test_set = [
             MyDataset2(
-                data=test_pipeline(fn),
+                data=test_pipeline(fn).data,
                 transforms=make_augs(test_config["transforms"]),
                 name="test:"+fn
                 ) for fn in fn_test
@@ -135,6 +138,7 @@ class MyDataModule(LightningDataModule):
 
     @staticmethod
     def make_legacy_pipeline(
+        name:str,
         cols:List=["KK"],
         base_freq:int=50,
         freq:int=4,
@@ -146,9 +150,15 @@ class MyDataModule(LightningDataModule):
         block_transforms:List=[]  # contiguous block transforms
         ):
         return [
-            "transforms.ReadCSV",
+            {
+                "transforms.ReadCSV": {
+                    "name": name
+                }
+            },
             "transforms.FixTime",
             "transforms.RelativeTime",
+            "transforms.DropDupTime",
+            # "transforms.PdDump",
             "transforms.AsFloat32",
             *pd_transforms,
             {
@@ -161,6 +171,7 @@ class MyDataModule(LightningDataModule):
             },
             {
                 "transforms.FindGapsAndTransform": {
+                    "freq": base_freq,
                     "for_each_contiguous_block": [
                         *block_transforms,
                         {
