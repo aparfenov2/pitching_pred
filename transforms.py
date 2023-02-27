@@ -116,8 +116,16 @@ class AddSpeed(torch.nn.Module):
 
     def forward(self, data: Dict[str, np.ndarray]):
         _data = dict(data)
-        for col in data.keys():
-            _data[f"{col}_v"] = data[col][self.delay:] - data[col][:-self.delay]
+        for col, d in data.items():
+            _data[f"{col}_v"] = d[self.delay:] - d[:-self.delay]
+            if isinstance(d, torch.Tensor):
+                assert d.dim() == 2, str(d.shape) # per-sequence access
+                _data[f"{col}_v"] = torch.cat([
+                    torch.zeros((self.delay, d.shape[1]), dtype=d.dtype),
+                    _data[f"{col}_v"]
+                    ], dim=0)
+            else:
+                raise Exception(f"unsupported data type for expansion: {type(d)}")
         return _data
 
 class StrideAndMakeBatches(torch.nn.Module):
@@ -129,7 +137,8 @@ class StrideAndMakeBatches(torch.nn.Module):
     def make_slices_gen(self, data):
         assert len(data.shape) == 2, str(data.shape) # L, F
         offset = 0
-        while offset + self.L < len(data):
+        assert self.L <= len(data), f"{self.L} <= {len(data)}"
+        while offset + self.L <= len(data):
             yield data[offset: offset + self.L]
             offset += int(self.L * self.stride)
 
@@ -231,4 +240,20 @@ class AddNoiseChannel(torch.nn.Module):
         y = data["y"]
         noise = (torch.rand_like(y) - 0.5) * self.amplitude
         data["noise"] = noise
+        return data
+
+class ChannelsToFeatures(torch.nn.Module):
+    def __init__(self, channels:List):
+        super().__init__()
+        self.channels = channels
+
+    def forward(self, data: Dict[str, torch.Tensor]):
+        data = dict(data)
+        y = data["y"]
+        assert y.dim() == 2, str(y.shape)
+        feats = [data[feat] for feat in self.channels]
+        _y = torch.cat([y, *feats], dim=1)
+        data["y"] = _y
+        assert _y.shape[0] == y.shape[0], f"{_y.shape}, {y.shape}"
+        assert _y.shape[1] == y.shape[1] + len(self.channels), f"{_y.shape}, {y.shape}"
         return data

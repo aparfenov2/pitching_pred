@@ -45,9 +45,7 @@ DEFAULT_TRAIN_CONFIG = {
 
 DEFAULT_VAL_CONFIG = {
     "L":500,
-    "transforms": [
-        "transforms.InvertZero"
-    ]
+    "transforms": []
 }
 
 DEFAULT_TEST_CONFIG = {
@@ -162,15 +160,15 @@ class MyDataModule(LightningDataModule):
                 }
             },
             {
-                "transforms.Downsample": {
-                    "base_freq": base_freq,
-                    "freq": freq
-                }
-            },
-            {
                 "transforms.FindGapsAndTransform": {
                     "for_each_contiguous_block": [
                         *block_transforms,
+                        {
+                            "transforms.Downsample": {
+                                "base_freq": base_freq,
+                                "freq": freq
+                            }
+                        },
                         {
                             "transforms.StrideAndMakeBatches": {
                                 "L": L,

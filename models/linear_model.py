@@ -26,7 +26,7 @@ class LinearModel(ModelBase):
         self.freq = freq
         self.future_len = int(freq * future_len_s)
         layers = []
-        #          y                    y'
+        #                       y                    y'
         # input_sz = self.num_points * num_feats + (self.num_points - 1)
         input_sz = self.num_points * num_feats
         for i in range(num_layers - 1):
@@ -62,13 +62,12 @@ class LinearModel(ModelBase):
     def forward_one_step(self, y:torch.Tensor):
         assert y.shape[1] == self.history_len, f"{y.shape[1]} == {self.history_len}"
         y1s = y[:,::self.freq] # 50 vals
-        assert y1s.shape[1] == self.num_points, f"{y1s.shape[1]} == {self.num_points}"
-        y1s_dt = y1s[:,1:] - y1s[:,:1]
-        y1s_dt = y1s_dt[:,:,0].unsqueeze(-1) # only y
-        y1s = y1s.reshape(y1s.shape[0], y1s.shape[1] * y1s.shape[2], 1)
-        assert y1s_dt.shape[1] == self.num_points - 1, f"{y1s_dt.shape[1]} == {self.num_points} - 1"
-        assert y1s.shape[-1] == y1s_dt.shape[-1] == 1, f"{y1s.shape[-1]} == {y1s_dt.shape[-1]} == 1"
-
+        # assert y1s.shape[1] == self.num_points, f"{y1s.shape[1]} == {self.num_points}"
+        # y1s_dt = y1s[:,1:] - y1s[:,:1]
+        # y1s_dt = y1s_dt[:,:,0].unsqueeze(-1) # only y
+        # y1s = y1s.reshape(y1s.shape[0], y1s.shape[1] * y1s.shape[2], 1)
+        # assert y1s_dt.shape[1] == self.num_points - 1, f"{y1s_dt.shape[1]} == {self.num_points} - 1"
+        # assert y1s.shape[-1] == y1s_dt.shape[-1] == 1, f"{y1s.shape[-1]} == {y1s_dt.shape[-1]} == 1"
         # inp = torch.cat([y1s, y1s_dt], dim=1).reshape(y.shape[0], -1)
         inp = y1s.reshape(y.shape[0], -1)
         return self.seq(inp).reshape(y.shape[0], 1, 1)
@@ -93,10 +92,11 @@ class LinearModel(ModelBase):
 def test_model():
     model = LinearModel(
         freq=1,
-        future_len_s=3
+        future_len_s=3,
+        num_feats=2
     )
     batch = {
-        "y": torch.rand(1, 112, 1)
+        "y": torch.rand(1, 112, 2)
     }
     # preds = model.forward(batch)
     criterion = nn.L1Loss()
