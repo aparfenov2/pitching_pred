@@ -75,7 +75,11 @@ def draw_preds_plot(ax, gts: TimeSeries, preds: TimeSeries, preds_last: TimeSeri
         return f"{l}_{cols[i]}"
 
     def make_color(ci, i):
-        palette = [('blue','red','green'), ('cyan', 'salmon', 'violet'), ('steelblue', 'chocolate', 'hotpink')]
+        palette = [
+            ('blue','red','green','hotpink', 'aqua'),
+            ('cyan', 'salmon', 'violet', 'grey', 'tan'),
+            ('steelblue', 'chocolate', 'hotpink', 'darkblue', 'indigo')
+            ]
         return palette[i][ci]
 
     def make_style(l, i):
@@ -84,14 +88,14 @@ def draw_preds_plot(ax, gts: TimeSeries, preds: TimeSeries, preds_last: TimeSeri
         }.get(l, '-')
 
     for i in range(len(cols)) if feature_id is None else [feature_id]:
-        ax.plot(xgts, ygts[:,i], color=make_color(0,i), label = make_label('y',i), linestyle=make_style('y',i))
+        ax.plot(xgts, ygts[:,i], label = make_label('y',i), linestyle=make_style('y',i))
 
     for i in range(ypreds.shape[-1]) if feature_id is None else [feature_id]:
-        ax.plot(xpreds, ypreds[:,i] , color=make_color(1,i), label = make_label('pred',i), linestyle=make_style('pred',i))
+        ax.plot(xpreds, ypreds[:,i] , label = make_label('pred',i), linestyle=make_style('pred',i))
         for bi in range(preds_last.y.shape[0]):
-            ax.plot(preds_last.t[bi], preds_last.y[bi,:,i], color=make_color(2,i), label = make_label('pred_tmp',i))
+            ax.plot(preds_last.t[bi], preds_last.y[bi,:,i], label = make_label('pred_tmp',i))
 
-    ax.axvline(torch.max(xgts) - future_len_s, color='b', ls='dashed')
+    ax.axvline(torch.max(xgts) - future_len_s, color='black', ls='dashed')
 
     x1,x2 = ax.get_xlim()
     y1,y2 = ax.get_ylim()

@@ -31,10 +31,8 @@ class MyDataset2(Dataset):
 
     def __str__(self) -> str:
         ret = self.name + ":\n"
-        for k,v in self.data.items():
-            ret += f"\t{k}\t{v.shape}\n"
-            break
-        ret += "others: " + ", ".join(list(self.data.keys())[1:])
+        ret += f"\ty\t{self.data['y'].shape}\n"
+        ret += "others: " + ", ".join([k for k in self.data.keys() if k != 'y'])
         return ret
 
 DEFAULT_TRAIN_CONFIG = {

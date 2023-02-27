@@ -17,7 +17,7 @@ from utils import resolve_classpath
 
 class LitPitchingPred(LightningModule):
     def __init__(self,
-        criterion = "MSELoss",
+        criterion = "torch.nn.MSELoss",
         val_criterion = "torch.nn.L1Loss",
         # params shared with datamodule
         metrics_each = 10,
