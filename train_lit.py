@@ -183,6 +183,7 @@ class LitPitchingPred(LightningModule):
 class MyLightningCLI(LightningCLI):
     def add_arguments_to_parser(self, parser):
         parser.add_argument("--experiment")
+        parser.add_argument("--no_clearml", action='store_true', default=False)
         parser.link_arguments("data.freq", "model.freq")
         parser.link_arguments("data.cols", "model.cols")
 
@@ -192,9 +193,11 @@ def cli_main():
         import argparse
         from clearml import Task
         parser = argparse.ArgumentParser()
-        parser.add_argument("--experiment", required=True)
+        parser.add_argument("--experiment")
+        parser.add_argument("--no_clearml", action='store_true', default=False)
         args, _ = parser.parse_known_args()
-        Task.init(project_name="pitching", task_name=args.experiment)
+        if not args.no_clearml:
+            Task.init(project_name="pitching", task_name=args.experiment)
     except ImportError:
         print("clearml not found")
 

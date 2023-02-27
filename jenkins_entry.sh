@@ -246,6 +246,7 @@ echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
     }
     python ${DEBUGPY} train_lit.py fit ${_CONFIG[@]} \
         --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
+        ${OTHER_ARGS[@]} \
         2>&1 | tee train.log
 
     [ -n "${tensorboard_pid}" ] && {
@@ -266,6 +267,7 @@ echo CLEARML_SUFFIX ${CLEARML_SUFFIX}
     ls -l $CKPT
     python ${DEBUGPY} train_lit.py "test" ${_CONFIG[@]} ${_CKPT} \
         --experiment ${EXPERIMENT_NAME}${CLEARML_SUFFIX} \
+        ${OTHER_ARGS[@]} \
         2>&1 | tee test.log
     exit 0
 }
