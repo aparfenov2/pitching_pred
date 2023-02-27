@@ -289,6 +289,16 @@ class BiasAndScale(torch.nn.Module):
             data["y"] = y
         return data
 
+class ConstScale(torch.nn.Module):
+    def __init__(self, scale=10):
+        super().__init__()
+        self.scale = scale
+
+    def forward(self, data: Dict[str, torch.Tensor]):
+        data = dict(data)
+        data["y"] *= self.scale
+        return data
+
 class AddNoiseChannel(torch.nn.Module):
     def __init__(self, amplitude=0.1):
         super().__init__()
@@ -316,3 +326,4 @@ class ChannelsToFeatures(torch.nn.Module):
         assert _y.shape[0] == y.shape[0], f"{_y.shape}, {y.shape}"
         assert _y.shape[1] == y.shape[1] + len(self.channels), f"{_y.shape}, {y.shape}"
         return data
+
