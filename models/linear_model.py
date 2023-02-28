@@ -89,6 +89,18 @@ class LinearModel(ModelBase):
         return criterion(preds, y_fut)
 
 
+class LinearModelWithBias(LinearModel):
+
+    def forward_one_step(self, y:torch.Tensor):
+        assert y.shape[1] == self.history_len, f"{y.shape[1]} == {self.history_len}"
+        y1s = y[:,::self.freq] # 50 vals
+        bias = torch.mean(y, dim=1, keepdim=True)
+        bias[:,:,1:] = 0
+        inp = (y1s - bias).reshape(y.shape[0], -1)
+        ret = self.seq(inp).reshape(y.shape[0], 1, 1)
+        return ret + bias[:,:,:1]
+
+
 def test_model():
     model = LinearModel(
         freq=1,
