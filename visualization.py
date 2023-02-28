@@ -72,6 +72,8 @@ def draw_preds_plot(ax, gts: TimeSeries, preds: TimeSeries, preds_last: TimeSeri
     assert xgts.dim() == 2, str(xgts.dim())
 
     def make_label(l,i):
+        if i >= len(cols):
+            return f"{l}_{i}"
         return f"{l}_{cols[i]}"
 
     def make_color(ci, i):
