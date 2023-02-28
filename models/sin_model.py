@@ -73,7 +73,10 @@ class SinModel(ModelBase):
         phase = params[:,0]
         phase = phase[..., None, None] # [64, 1, 1]
         frq = params[:,1]
-        frq = 0.1 + 0.5 * torch.sigmoid(frq)
+        min_frq = 1/10
+        max_frq = 1/2
+        # NewValue = (((OldValue - OldMin) * (NewMax - NewMin)) / (OldMax - OldMin)) + NewMin
+        frq = (((torch.tanh(frq) - (-1)) * (max_frq - min_frq)) / (1 - (-1))) + min_frq
         w = linspace(torch.zeros_like(frq), 2 * torch.pi * frq * self.train_future_len_s, trg.shape[1]).swapdims(0, 1)[...,None] # [64, 20, 1]
         ret = bias + amp * torch.sin(phase + w)
         return ret
